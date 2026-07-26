@@ -53,7 +53,7 @@ public class ScreenshotService extends AccessibilityService {
                 String url = AppPrefs.server(ScreenshotService.this);
                 String tk = prefs.getString(AppPrefs.KEY_TOKEN, "");
                 boolean userStopped = prefs.getBoolean("user_stopped", false);
-                if (!CompanionService.isRunning() && !userStopped && !url.isEmpty() && !tk.isEmpty()) {
+                if (!CompanionService.isRunning() && !userStopped && !url.isEmpty() && !tk.isEmpty() && !AppPrefs.isLegacyServer(url)) {
                     DebugState.append(ScreenshotService.this, "看门狗：尝试重启前台服务");
                     Intent i = new Intent(ScreenshotService.this, CompanionService.class);
                     i.putExtra("server_url", url);
@@ -74,7 +74,7 @@ public class ScreenshotService extends AccessibilityService {
                 String url = normalizeUrl(AppPrefs.server(ScreenshotService.this));
                 String tk = prefs.getString(AppPrefs.KEY_TOKEN, "");
                 boolean userStopped = prefs.getBoolean("user_stopped", true);
-                if (!userStopped && !url.isEmpty() && !tk.isEmpty()) {
+                if (!userStopped && !url.isEmpty() && !tk.isEmpty() && !AppPrefs.isLegacyServer(url)) {
                     String body = pollServerFromAccessibility(url, tk);
                     if (body != null && body.length() > 0) CompanionService.handleCommandBody(ScreenshotService.this, body, url, tk);
                 }
@@ -89,8 +89,8 @@ public class ScreenshotService extends AccessibilityService {
         super.onServiceConnected();
         instance = this;
         boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
-        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.2");
-        if (clearedLegacyServer) DebugState.append(this, "检测到旧版默认服务器地址，已清空。请重新填写新的服务器地址。");
+        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.4");
+        if (clearedLegacyServer) DebugState.append(this, "检测到旧版默认服务器地址。请部署自己的 Render 服务后填写新的服务器地址。");
         watchdog = new Handler(Looper.getMainLooper());
         watchdog.postDelayed(watchdogTick, 15000);
         startBackgroundPolling();
@@ -120,7 +120,7 @@ public class ScreenshotService extends AccessibilityService {
         backgroundPollThread = new HandlerThread("LinjianAccessibilityPoll");
         backgroundPollThread.start();
         backgroundPollHandler = new Handler(backgroundPollThread.getLooper());
-        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.2，将读取连接设置里的实际地址");
+        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.4，将读取连接设置里的实际地址");
         backgroundPollHandler.postDelayed(backgroundPollTick, 1000);
     }
 

@@ -12,9 +12,8 @@ import java.util.Map;
 public class AppPrefs {
     public static final String PREFS = "linjian_peek";
     public static final String KEY_SERVER = "server_url";
-    public static final String APP_VERSION_NAME = "0.3.4.2";
-    public static final int APP_VERSION_CODE = 30402;
-    private static final String LEGACY_RORK_HOST = "zhangxinchuang-server-rork.onrender.com";
+    public static final String APP_VERSION_NAME = "0.3.4.4";
+    public static final int APP_VERSION_CODE = 30404;
     public static final String KEY_TOKEN = "token";
     public static final String KEY_DEVICE = "device_id";
     public static final String KEY_INTERVAL = "poll_interval_ms";
@@ -50,35 +49,34 @@ public class AppPrefs {
 
     public static SharedPreferences get(Context ctx) { return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
 
+    public static final String LEGACY_RORK_HOST = "zhangxinchuang-server-rork.onrender.com";
+
     public static boolean isLegacyServer(String raw) {
         if (raw == null) return false;
-        String s = raw.trim().toLowerCase(Locale.US);
+        String s = cleanServer(raw).toLowerCase(Locale.ROOT);
         return s.contains(LEGACY_RORK_HOST);
+    }
+
+    public static String legacyServerMessage() {
+        return "旧测试服务器已停用，请部署自己的 Render 服务后填写新的 https://xxx.onrender.com 地址";
     }
 
     public static String cleanServer(String raw) {
         if (raw == null) return "";
         String s = raw.trim();
-        if (s.equalsIgnoreCase("null") || isLegacyServer(s)) return "";
+        if (s.equalsIgnoreCase("null")) return "";
+        while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
+        if (s.endsWith("/health")) s = s.substring(0, s.length() - "/health".length());
+        if (s.endsWith("/mcp")) s = s.substring(0, s.length() - "/mcp".length());
         return s;
     }
 
     public static boolean migrateLegacyConfig(Context ctx) {
-        SharedPreferences prefs = get(ctx);
-        String old = prefs.getString(KEY_SERVER, "");
-        if (isLegacyServer(old)) {
-            prefs.edit()
-                .putString(KEY_SERVER, "")
-                .putBoolean("user_stopped", true)
-                .putString("server_migration_note", "旧版默认服务器地址已清空，请重新填写新的 Render 地址")
-                .apply();
-            return true;
-        }
+        // v0.3.4.4：不再静默清空旧地址。旧 rork 地址会保存，但启动时明确拦截并提示部署新服务。
         return false;
     }
 
     public static String server(Context ctx) {
-        migrateLegacyConfig(ctx);
         return cleanServer(get(ctx).getString(KEY_SERVER, ""));
     }
     public static String token(Context ctx) { return get(ctx).getString(KEY_TOKEN, ""); }

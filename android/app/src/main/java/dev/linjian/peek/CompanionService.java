@@ -58,7 +58,11 @@ public class CompanionService extends Service {
             DebugState.append(this, "服务启动失败：服务器地址或 Token 为空");
             stopSelf(); return START_NOT_STICKY;
         }
-        DebugState.append(this, "掌心窗 v0.3.4.2 服务已启动，实际使用地址：" + serverUrl);
+        if (AppPrefs.isLegacyServer(serverUrl)) {
+            DebugState.append(this, "服务启动失败：旧测试服务器已停用。当前填写的是 " + serverUrl + "，请部署自己的 Render 服务后填写新的 onrender.com 地址。");
+            stopSelf(); return START_NOT_STICKY;
+        }
+        DebugState.append(this, "掌心窗 v0.3.4.4 服务已启动，实际使用地址：" + serverUrl);
         if (!running) { running = true; startPolling(); } else DebugState.append(this, "服务已在运行，继续轮询");
         return START_STICKY;
     }
@@ -78,6 +82,11 @@ public class CompanionService extends Service {
             String latestToken = AppPrefs.token(this);
             if (latestServer == null || latestServer.isEmpty() || latestToken == null || latestToken.isEmpty()) {
                 DebugState.append(this, "轮询暂停：服务器地址或 Token 为空，请重新填写并启动服务");
+                stopSelf();
+                return;
+            }
+            if (AppPrefs.isLegacyServer(latestServer)) {
+                DebugState.append(this, "轮询暂停：旧测试服务器已停用。请部署自己的 Render 服务后填写新的 onrender.com 地址。");
                 stopSelf();
                 return;
             }
