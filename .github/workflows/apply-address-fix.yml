@@ -1,4 +1,4 @@
-name: Apply v0.3.4.2 Address Fix
+name: Apply v0.3.4.4 Address Fix
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
 
       - name: Apply ZIP
         run: |
-          ZIP_FILE="linjian-peek-public-v0.3.4.2-address-fix.zip"
+          ZIP_FILE="linjian-peek-public-v0.3.4.4-address-fix.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "找不到 ZIP：$ZIP_FILE"
