@@ -58,11 +58,7 @@ public class CompanionService extends Service {
             DebugState.append(this, "服务启动失败：服务器地址或 Token 为空");
             stopSelf(); return START_NOT_STICKY;
         }
-        if (AppPrefs.isLegacyServer(serverUrl)) {
-            DebugState.append(this, "服务启动失败：旧测试服务器已停用。当前填写的是 " + serverUrl + "，请部署自己的 Render 服务后填写新的 onrender.com 地址。");
-            stopSelf(); return START_NOT_STICKY;
-        }
-        DebugState.append(this, "掌心窗 v0.3.4.4 服务已启动，实际使用地址：" + serverUrl);
+        DebugState.append(this, "掌心窗 v0.3.4.5 服务已启动，实际连接地址：" + serverUrl);
         if (!running) { running = true; startPolling(); } else DebugState.append(this, "服务已在运行，继续轮询");
         return START_STICKY;
     }
@@ -85,11 +81,6 @@ public class CompanionService extends Service {
                 stopSelf();
                 return;
             }
-            if (AppPrefs.isLegacyServer(latestServer)) {
-                DebugState.append(this, "轮询暂停：旧测试服务器已停用。请部署自己的 Render 服务后填写新的 onrender.com 地址。");
-                stopSelf();
-                return;
-            }
             if (!latestServer.equals(serverUrl)) {
                 DebugState.append(this, "检测到服务器地址已更新，切换到：" + latestServer);
                 serverUrl = latestServer;
@@ -98,7 +89,7 @@ public class CompanionService extends Service {
             uploadState(serverUrl, token);
             String body = pollServer();
             if (body != null && body.length() > 0) handleCommandBody(this, body, serverUrl, token);
-        } catch (Exception e) { DebugState.append(this, "轮询异常：" + ScreenshotService.shortMsg(e)); }
+        } catch (Exception e) { DebugState.append(this, "轮询异常：" + ScreenshotService.friendlyNetMsg(e)); }
         if (running) pollHandler.postDelayed(this::pollLoop, Math.max(700, AppPrefs.interval(this)));
     }
 
@@ -110,7 +101,7 @@ public class CompanionService extends Service {
             if (code == 200) {
                 if (body.contains("\"command\": null") || body.contains("\"command\":null")) return "";
                 DebugState.append(this, "轮询成功：收到命令包"); return body;
-            } else DebugState.append(this, "轮询失败：HTTP " + code + " " + ScreenshotService.clip(body));
+            } else DebugState.append(this, "轮询失败：HTTP " + code + " " + ScreenshotService.httpHint(code) + " " + ScreenshotService.clip(body));
             return "";
         } finally { conn.disconnect(); }
     }

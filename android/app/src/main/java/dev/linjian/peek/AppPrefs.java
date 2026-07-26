@@ -12,8 +12,8 @@ import java.util.Map;
 public class AppPrefs {
     public static final String PREFS = "linjian_peek";
     public static final String KEY_SERVER = "server_url";
-    public static final String APP_VERSION_NAME = "0.3.4.4";
-    public static final int APP_VERSION_CODE = 30404;
+    public static final String APP_VERSION_NAME = "0.3.4.5";
+    public static final int APP_VERSION_CODE = 30405;
     public static final String KEY_TOKEN = "token";
     public static final String KEY_DEVICE = "device_id";
     public static final String KEY_INTERVAL = "poll_interval_ms";
@@ -49,30 +49,39 @@ public class AppPrefs {
 
     public static SharedPreferences get(Context ctx) { return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
 
-    public static final String LEGACY_RORK_HOST = "zhangxinchuang-server-rork.onrender.com";
-
+    /**
+     * v0.3.4.5：不再按域名黑名单拦截 Render 地址。
+     * 用户自己的服务名可能包含 rork、test、demo 等任意词，App 只按真实联网结果判断。
+     */
     public static boolean isLegacyServer(String raw) {
-        if (raw == null) return false;
-        String s = cleanServer(raw).toLowerCase(Locale.ROOT);
-        return s.contains(LEGACY_RORK_HOST);
+        return false;
     }
 
     public static String legacyServerMessage() {
-        return "旧测试服务器已停用，请部署自己的 Render 服务后填写新的 https://xxx.onrender.com 地址";
+        return "服务器地址不再按名称拦截；请按实际连接结果检查网络、Render 状态、Token 和后端接口";
     }
 
     public static String cleanServer(String raw) {
         if (raw == null) return "";
         String s = raw.trim();
         if (s.equalsIgnoreCase("null")) return "";
+        int q = s.indexOf('?');
+        if (q >= 0) s = s.substring(0, q);
         while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
-        if (s.endsWith("/health")) s = s.substring(0, s.length() - "/health".length());
-        if (s.endsWith("/mcp")) s = s.substring(0, s.length() - "/mcp".length());
+        String lower = s.toLowerCase(Locale.ROOT);
+        String[] suffixes = new String[] { "/health", "/api/poll", "/api/state", "/api/screenshot", "/mcp" };
+        for (String suffix : suffixes) {
+            if (lower.endsWith(suffix)) {
+                s = s.substring(0, s.length() - suffix.length());
+                break;
+            }
+        }
+        while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
         return s;
     }
 
     public static boolean migrateLegacyConfig(Context ctx) {
-        // v0.3.4.4：不再静默清空旧地址。旧 rork 地址会保存，但启动时明确拦截并提示部署新服务。
+        // v0.3.4.5：不迁移、不清空、不拦截任何 onrender.com 地址。
         return false;
     }
 

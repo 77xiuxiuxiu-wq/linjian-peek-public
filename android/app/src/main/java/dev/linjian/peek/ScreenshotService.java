@@ -53,7 +53,7 @@ public class ScreenshotService extends AccessibilityService {
                 String url = AppPrefs.server(ScreenshotService.this);
                 String tk = prefs.getString(AppPrefs.KEY_TOKEN, "");
                 boolean userStopped = prefs.getBoolean("user_stopped", false);
-                if (!CompanionService.isRunning() && !userStopped && !url.isEmpty() && !tk.isEmpty() && !AppPrefs.isLegacyServer(url)) {
+                if (!CompanionService.isRunning() && !userStopped && !url.isEmpty() && !tk.isEmpty()) {
                     DebugState.append(ScreenshotService.this, "看门狗：尝试重启前台服务");
                     Intent i = new Intent(ScreenshotService.this, CompanionService.class);
                     i.putExtra("server_url", url);
@@ -61,7 +61,7 @@ public class ScreenshotService extends AccessibilityService {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i); else startService(i);
                 }
             } catch (Exception e) {
-                DebugState.append(ScreenshotService.this, "看门狗异常：" + shortMsg(e));
+                DebugState.append(ScreenshotService.this, "看门狗异常：" + friendlyNetMsg(e));
             }
             if (watchdog != null) watchdog.postDelayed(this, 60000);
         }
@@ -74,12 +74,12 @@ public class ScreenshotService extends AccessibilityService {
                 String url = normalizeUrl(AppPrefs.server(ScreenshotService.this));
                 String tk = prefs.getString(AppPrefs.KEY_TOKEN, "");
                 boolean userStopped = prefs.getBoolean("user_stopped", true);
-                if (!userStopped && !url.isEmpty() && !tk.isEmpty() && !AppPrefs.isLegacyServer(url)) {
+                if (!userStopped && !url.isEmpty() && !tk.isEmpty()) {
                     String body = pollServerFromAccessibility(url, tk);
                     if (body != null && body.length() > 0) CompanionService.handleCommandBody(ScreenshotService.this, body, url, tk);
                 }
             } catch (Exception e) {
-                DebugState.append(ScreenshotService.this, "无障碍后台轮询异常：" + shortMsg(e));
+                DebugState.append(ScreenshotService.this, "无障碍后台轮询异常：" + friendlyNetMsg(e));
             }
             if (backgroundPollHandler != null) backgroundPollHandler.postDelayed(this, Math.max(700, AppPrefs.interval(ScreenshotService.this)));
         }
@@ -89,7 +89,7 @@ public class ScreenshotService extends AccessibilityService {
         super.onServiceConnected();
         instance = this;
         boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
-        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.4");
+        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.5");
         if (clearedLegacyServer) DebugState.append(this, "检测到旧版默认服务器地址。请部署自己的 Render 服务后填写新的服务器地址。");
         watchdog = new Handler(Looper.getMainLooper());
         watchdog.postDelayed(watchdogTick, 15000);
@@ -120,7 +120,7 @@ public class ScreenshotService extends AccessibilityService {
         backgroundPollThread = new HandlerThread("LinjianAccessibilityPoll");
         backgroundPollThread.start();
         backgroundPollHandler = new Handler(backgroundPollThread.getLooper());
-        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.4，将读取连接设置里的实际地址");
+        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.5，将读取连接设置里的实际地址");
         backgroundPollHandler.postDelayed(backgroundPollTick, 1000);
     }
 
@@ -347,11 +347,26 @@ public class ScreenshotService extends AccessibilityService {
             if (code >= 200 && code < 300) DebugState.append(this, "上传成功：HTTP " + code + " " + clip(body));
             else DebugState.append(this, "上传失败：HTTP " + code + " " + clip(body));
             conn.disconnect();
-        } catch (Exception e) { DebugState.append(this, "上传异常：" + shortMsg(e)); }
+        } catch (Exception e) { DebugState.append(this, "上传异常：" + friendlyNetMsg(e)); }
     }
 
-    public static String normalizeUrl(String url) { if (url == null) return ""; url = url.trim(); while (url.endsWith("/")) url = url.substring(0, url.length() - 1); return url; }
+    public static String normalizeUrl(String url) { if (url == null) return ""; url = AppPrefs.cleanServer(url); while (url.endsWith("/")) url = url.substring(0, url.length() - 1); return url; }
     static String readBody(HttpURLConnection conn, int code) { try { InputStream is = code >= 400 ? conn.getErrorStream() : conn.getInputStream(); if (is == null) return ""; ByteArrayOutputStream bos = new ByteArrayOutputStream(); byte[] buf = new byte[1024]; int n; while ((n = is.read(buf)) > 0) bos.write(buf, 0, n); return new String(bos.toByteArray(), "UTF-8"); } catch (Exception e) { return ""; } }
-    static String clip(String s) { if (s == null) return ""; s = s.replace('\n', ' ').replace('\r', ' '); return s.length() > 90 ? s.substring(0, 90) + "…" : s; }
+    static String clip(String s) { if (s == null) return ""; s = s.replace('\n', ' ').replace('\r', ' '); return s.length() > 120 ? s.substring(0, 120) + "…" : s; }
+    static String httpHint(int code) {
+        if (code == 401 || code == 403) return "Token 可能不一致，请检查 App 和 Render 环境变量。";
+        if (code == 404) return "接口不存在，可能部署的不是掌心窗后端或后端版本不匹配。";
+        if (code == 502 || code == 503 || code == 504) return "Render 服务可能正在冷启动或启动失败，请等 1 分钟后重试并查看 Render Logs。";
+        if (code >= 500) return "服务器内部错误，请查看 Render Logs。";
+        return "";
+    }
     static String shortMsg(Exception e) { String msg = e.getClass().getSimpleName(); if (e.getMessage() != null) msg += ": " + e.getMessage(); return clip(msg); }
+    static String friendlyNetMsg(Exception e) {
+        String msg = shortMsg(e);
+        String name = e == null ? "" : e.getClass().getSimpleName();
+        if ("UnknownHostException".equals(name)) return clip("DNS 解析失败：手机网络暂时找不到这个 Render 域名。确认地址无空格，服务为 Live；刚创建服务时可等待几分钟再试。原始错误：" + msg);
+        if ("SocketTimeoutException".equals(name)) return clip("连接超时：Render 免费服务可能在冷启动，等 1 分钟后重试；也检查服务是否 Live。原始错误：" + msg);
+        if ("ConnectException".equals(name)) return clip("连接失败：网络或 Render 服务未接通，请检查服务状态和地址。原始错误：" + msg);
+        return msg;
+    }
 }

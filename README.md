@@ -1,4 +1,4 @@
-# 掌心窗公开版 v0.3.4.4-public-display-update
+# 掌心窗公开版 v0.3.4.5-render-address-fix
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/linzhi-524/linjian-peek-public)
 
@@ -11,14 +11,14 @@
 > 重要提醒：截图、读屏、控制手机、通知、闹钟、应用门禁、自动打开目标 App 都是敏感能力。只在本人设备、本人服务器、本人明确授权的场景使用。不要把 Token 发给别人，也不要接入不可信 MCP 客户端。
 
 
-## v0.3.4.4 轻量修复
+## v0.3.4.5 轻量修复
 
-这一版是公开版 hotfix，不合并私用声息功能，重点修复部分 vivo / OriginOS 机型首次打开只显示左上角一小块的问题。
+这一版是公开版 hotfix，不合并私用声息功能，重点修复 v0.3.4.4 把部分用户自建 Render 域名误判为旧地址的问题。
 
-- Android Manifest 增加现代 target / 屏幕兼容声明，避免被系统按旧应用兼容缩放。
-- 启动后多次重新测量根布局，让页面第一次打开就铺满可用区域。
-- 设置页新增「版本与更新」：显示当前版本、检查更新、查看更新日志、下载最新版 APK。
-- 后端新增 `/api/update.json` 和 `/update.json`，用于给 App 返回最新版信息。
+- 不再按 `rork` 或具体域名黑名单拦截服务器地址。
+- 所有用户自建的 `https://xxx.onrender.com` 都允许保存和连接。
+- 连接失败时按真实原因显示日志：DNS 解析失败、Render 冷启动、Token 不一致、接口不匹配或服务器错误。
+- 保留 v0.3.4 系列显示适配、版本与更新、禁用自动备份等修复。
 - README 原有 Render 一键部署、本地 / 局域网部署、Hugging Face 部署和 MCP 教程全部保留。
 
 ## 目录说明
@@ -312,14 +312,28 @@ Codespaces 里要把端口 8513 和 8787 设为公开或转发，再把手机端
 - v0.2.2 hotfix: allow LAN HTTP backend for self-hosted users.
 
 
-## v0.3.4.4 地址保存修复说明
+## v0.3.4.5 Render 地址说明
 
-如果 App 日志里一直出现旧地址 `zhangxinchuang-server-rork.onrender.com`，请升级到 v0.3.4.4。
-本版会清理旧版默认地址，并禁用 Android 自动备份，避免卸载重装后又恢复旧服务器配置。
+如果你的 Render 服务名里带 `rork`，这是允许的。v0.3.4.5 不再按域名关键词拦截服务器地址。
 
-升级后请重新填写服务器地址和 Token，然后启动服务。日志里会显示“实际使用地址”，以这个地址为准。
+正确填写格式：
 
+```
+https://你的服务名.onrender.com
+```
 
-## v0.3.4.4 旧服务器提示修复
+也可以误填 `/health` 或 `/api/poll`，App 会自动清理成主地址。
 
-旧 `zhangxinchuang-server-rork.onrender.com` 测试地址已不可用。新版不会再默默清空地址，也不会持续轮询造成 UnknownHost 日志刷屏；当用户填写旧地址时，会明确提示需要部署自己的 Render 服务，并填写自己的 `https://xxx.onrender.com` 地址。
+排查顺序：先用浏览器打开 `https://你的服务名.onrender.com/health`，确认服务能响应；再检查 App Token 是否与 Render 环境变量一致。
+
+## v0.3.4.5 不再误拦 Render 域名
+
+v0.3.4.4 曾把部分带 `rork` 的地址当作旧测试地址拦截。v0.3.4.5 已取消这个黑名单逻辑，改为按真实联网结果判断。
+
+常见日志含义：
+
+- `DNS 解析失败`：手机网络暂时找不到域名，确认地址无误，服务 Live，刚创建可等几分钟。
+- `连接超时`：Render 免费服务可能在冷启动，等 1 分钟再试。
+- `HTTP 401/403`：Token 不一致。
+- `HTTP 404`：部署的后端接口不匹配。
+- `HTTP 5xx`：服务器启动失败或内部错误，查看 Render Logs。

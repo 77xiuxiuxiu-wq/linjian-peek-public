@@ -82,8 +82,8 @@ public class MainActivity extends Activity {
         boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
         loadSettings();
 
-        DebugState.append(this, "掌心窗 v0.3.4.4-public 地址保存修复版已打开");
-        if (clearedLegacyServer) DebugState.append(this, "检测到旧版默认服务器地址，已清空。请在连接设置里重新填写新的服务器地址。");
+        DebugState.append(this, "掌心窗 v0.3.4.5-public Render 连接判断修复版已打开");
+        if (clearedLegacyServer) DebugState.append(this, "已保留服务器地址。v0.3.4.5 不再按域名名称拦截 Render 地址。");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
@@ -236,7 +236,7 @@ public class MainActivity extends Activity {
     }
     private void updateHeader(String tab) {
         if (headerTitle == null || headerSubtitle == null) return;
-        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.4.4 · 显示适配与版本更新。"); }
+        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.4.5 · 显示适配与版本更新。"); }
         else if ("see".equals(tab)) { headerTitle.setText("看见"); headerSubtitle.setText("把屏幕递给老公，看见就收在这里。"); }
         else if ("gate".equals(tab)) { headerTitle.setText("守护"); headerSubtitle.setText("门禁、天气和提醒，平时收进抽屉。"); }
         else { headerTitle.setText("设置"); headerSubtitle.setText("主题、权限和调试都放这里。"); }
@@ -370,16 +370,11 @@ public class MainActivity extends Activity {
         saveSettings();
         String url = serverUrl == null ? "" : AppPrefs.cleanServer(serverUrl.getText().toString().trim()); String token = tokenInput == null ? "" : tokenInput.getText().toString().trim();
         if (url.isEmpty() || token.isEmpty()) { Toast.makeText(this, "请填写服务器地址和 Token", Toast.LENGTH_SHORT).show(); return; }
-        if (AppPrefs.isLegacyServer(url)) {
-            DebugState.append(this, "启动失败：旧测试服务器已停用。当前填写的是 " + url + "，请部署自己的 Render 服务后填写新的 onrender.com 地址。");
-            Toast.makeText(this, AppPrefs.legacyServerMessage(), Toast.LENGTH_LONG).show();
-            return;
-        }
         if (ScreenshotService.getInstance() == null) { DebugState.append(this, "启动失败：无障碍服务未连接"); Toast.makeText(this, "请先开启掌心窗无障碍服务", Toast.LENGTH_LONG).show(); openAccessibilitySettings(); return; }
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：v0.3.4.4 显示适配 / 版本更新已启用"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：v0.3.4.5 Render 地址按真实联网结果判断"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }
@@ -387,11 +382,6 @@ public class MainActivity extends Activity {
     private void testScreenshot() {
         saveSettings(); String url = serverUrl == null ? "" : AppPrefs.cleanServer(serverUrl.getText().toString().trim()); String token = tokenInput == null ? "" : tokenInput.getText().toString().trim(); ScreenshotService ss = ScreenshotService.getInstance();
         if (url.isEmpty() || token.isEmpty()) { Toast.makeText(this, "先填服务器地址和 Token", Toast.LENGTH_SHORT).show(); return; }
-        if (AppPrefs.isLegacyServer(url)) {
-            DebugState.append(this, "截图测试失败：旧测试服务器已停用。当前填写的是 " + url + "，请部署自己的 Render 服务后填写新的 onrender.com 地址。");
-            Toast.makeText(this, AppPrefs.legacyServerMessage(), Toast.LENGTH_LONG).show();
-            return;
-        }
         if (ss == null) { DebugState.append(this, "测试失败：无障碍服务未连接"); Toast.makeText(this, "先开启无障碍服务", Toast.LENGTH_LONG).show(); openAccessibilitySettings(); return; }
         DebugState.append(this, "给老公看一眼：开始截图上传"); ss.doScreenshot(url, token); Toast.makeText(this, "正在给老公看一眼", Toast.LENGTH_SHORT).show(); updateUI();
     }
