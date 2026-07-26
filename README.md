@@ -1,4 +1,4 @@
-# 掌心窗公开版 v0.3.4.1-public-display-update
+# 掌心窗公开版 v0.3.4.2-public-display-update
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/linzhi-524/linjian-peek-public)
 
@@ -11,7 +11,7 @@
 > 重要提醒：截图、读屏、控制手机、通知、闹钟、应用门禁、自动打开目标 App 都是敏感能力。只在本人设备、本人服务器、本人明确授权的场景使用。不要把 Token 发给别人，也不要接入不可信 MCP 客户端。
 
 
-## v0.3.4.1 轻量修复
+## v0.3.4.2 轻量修复
 
 这一版是公开版 hotfix，不合并私用声息功能，重点修复部分 vivo / OriginOS 机型首次打开只显示左上角一小块的问题。
 
@@ -310,3 +310,11 @@ Codespaces 里要把端口 8513 和 8787 设为公开或转发，再把手机端
 - 评论自动发送建议默认关闭，先用草稿模式确认。
 
 - v0.2.2 hotfix: allow LAN HTTP backend for self-hosted users.
+
+
+## v0.3.4.2 地址修复说明
+
+如果 App 日志里一直出现旧地址 `zhangxinchuang-server-rork.onrender.com`，请升级到 v0.3.4.2。
+本版会清理旧版默认地址，并禁用 Android 自动备份，避免卸载重装后又恢复旧服务器配置。
+
+升级后请重新填写服务器地址和 Token，然后启动服务。日志里会显示“实际使用地址”，以这个地址为准。

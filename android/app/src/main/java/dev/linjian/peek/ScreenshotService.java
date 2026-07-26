@@ -50,7 +50,7 @@ public class ScreenshotService extends AccessibilityService {
         @Override public void run() {
             try {
                 SharedPreferences prefs = getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE);
-                String url = prefs.getString(AppPrefs.KEY_SERVER, "");
+                String url = AppPrefs.server(ScreenshotService.this);
                 String tk = prefs.getString(AppPrefs.KEY_TOKEN, "");
                 boolean userStopped = prefs.getBoolean("user_stopped", false);
                 if (!CompanionService.isRunning() && !userStopped && !url.isEmpty() && !tk.isEmpty()) {
@@ -71,7 +71,7 @@ public class ScreenshotService extends AccessibilityService {
         @Override public void run() {
             try {
                 SharedPreferences prefs = getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE);
-                String url = normalizeUrl(prefs.getString(AppPrefs.KEY_SERVER, ""));
+                String url = normalizeUrl(AppPrefs.server(ScreenshotService.this));
                 String tk = prefs.getString(AppPrefs.KEY_TOKEN, "");
                 boolean userStopped = prefs.getBoolean("user_stopped", true);
                 if (!userStopped && !url.isEmpty() && !tk.isEmpty()) {
@@ -88,7 +88,9 @@ public class ScreenshotService extends AccessibilityService {
     @Override public void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
-        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.1");
+        boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
+        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.2");
+        if (clearedLegacyServer) DebugState.append(this, "检测到旧版默认服务器地址，已清空。请重新填写新的服务器地址。");
         watchdog = new Handler(Looper.getMainLooper());
         watchdog.postDelayed(watchdogTick, 15000);
         startBackgroundPolling();
@@ -118,7 +120,7 @@ public class ScreenshotService extends AccessibilityService {
         backgroundPollThread = new HandlerThread("LinjianAccessibilityPoll");
         backgroundPollThread.start();
         backgroundPollHandler = new Handler(backgroundPollThread.getLooper());
-        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.1");
+        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.2，将读取连接设置里的实际地址");
         backgroundPollHandler.postDelayed(backgroundPollTick, 1000);
     }
 

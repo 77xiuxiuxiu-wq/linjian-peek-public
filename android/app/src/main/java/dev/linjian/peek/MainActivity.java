@@ -40,8 +40,8 @@ import java.net.URL;
 import java.util.Calendar;
 
 public class MainActivity extends Activity {
-    private static final String APP_VERSION_NAME = "0.3.4.1";
-    private static final int APP_VERSION_CODE = 30401;
+    private static final String APP_VERSION_NAME = AppPrefs.APP_VERSION_NAME;
+    private static final int APP_VERSION_CODE = AppPrefs.APP_VERSION_CODE;
     private static final String DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/linzhi-524/linjian-peek-public/main/update.json";
     private int latestVersionCode = APP_VERSION_CODE;
     private String latestVersionName = APP_VERSION_NAME;
@@ -79,9 +79,11 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         bindViews();
         repairFirstLayoutPass();
+        boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
         loadSettings();
 
-        DebugState.append(this, "掌心窗 v0.3.4.1-public 显示适配版已打开");
+        DebugState.append(this, "掌心窗 v0.3.4.2-public 地址修复版已打开");
+        if (clearedLegacyServer) DebugState.append(this, "检测到旧版默认服务器地址，已清空。请在连接设置里重新填写新的服务器地址。");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
@@ -154,7 +156,7 @@ public class MainActivity extends Activity {
 
     private void loadSettings() {
         SharedPreferences prefs = getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE);
-        if (serverUrl != null) serverUrl.setText(prefs.getString(AppPrefs.KEY_SERVER, ""));
+        if (serverUrl != null) serverUrl.setText(AppPrefs.server(this));
         if (tokenInput != null) tokenInput.setText(prefs.getString(AppPrefs.KEY_TOKEN, ""));
         if (deviceInput != null) deviceInput.setText(prefs.getString(AppPrefs.KEY_DEVICE, "android-phone"));
         if (userNameInput != null) userNameInput.setText(prefs.getString(AppPrefs.KEY_USER_NICKNAME, "宝宝"));
@@ -191,7 +193,7 @@ public class MainActivity extends Activity {
 
     private void saveSettings() {
         SharedPreferences.Editor e = getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit();
-        if (serverUrl != null) e.putString(AppPrefs.KEY_SERVER, serverUrl.getText().toString().trim());
+        if (serverUrl != null) e.putString(AppPrefs.KEY_SERVER, AppPrefs.cleanServer(serverUrl.getText().toString().trim()));
         if (tokenInput != null) e.putString(AppPrefs.KEY_TOKEN, tokenInput.getText().toString().trim());
         if (deviceInput != null) e.putString(AppPrefs.KEY_DEVICE, deviceInput.getText().toString().trim().isEmpty() ? "android-phone" : deviceInput.getText().toString().trim());
         if (userNameInput != null) e.putString(AppPrefs.KEY_USER_NICKNAME, userNameInput.getText().toString().trim().isEmpty() ? "宝宝" : userNameInput.getText().toString().trim());
@@ -234,7 +236,7 @@ public class MainActivity extends Activity {
     }
     private void updateHeader(String tab) {
         if (headerTitle == null || headerSubtitle == null) return;
-        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.4.1 · 显示适配与版本更新。"); }
+        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.4.2 · 显示适配与版本更新。"); }
         else if ("see".equals(tab)) { headerTitle.setText("看见"); headerSubtitle.setText("把屏幕递给老公，看见就收在这里。"); }
         else if ("gate".equals(tab)) { headerTitle.setText("守护"); headerSubtitle.setText("门禁、天气和提醒，平时收进抽屉。"); }
         else { headerTitle.setText("设置"); headerSubtitle.setText("主题、权限和调试都放这里。"); }
@@ -366,19 +368,19 @@ public class MainActivity extends Activity {
 
     private void startCompanionService() {
         saveSettings();
-        String url = serverUrl == null ? "" : serverUrl.getText().toString().trim(); String token = tokenInput == null ? "" : tokenInput.getText().toString().trim();
+        String url = serverUrl == null ? "" : AppPrefs.cleanServer(serverUrl.getText().toString().trim()); String token = tokenInput == null ? "" : tokenInput.getText().toString().trim();
         if (url.isEmpty() || token.isEmpty()) { Toast.makeText(this, "请填写服务器地址和 Token", Toast.LENGTH_SHORT).show(); return; }
         if (ScreenshotService.getInstance() == null) { DebugState.append(this, "启动失败：无障碍服务未连接"); Toast.makeText(this, "请先开启掌心窗无障碍服务", Toast.LENGTH_LONG).show(); openAccessibilitySettings(); return; }
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：v0.3.4.1 显示适配 / 版本更新已启用"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：v0.3.4.2 显示适配 / 版本更新已启用"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }
 
     private void testScreenshot() {
-        saveSettings(); String url = serverUrl == null ? "" : serverUrl.getText().toString().trim(); String token = tokenInput == null ? "" : tokenInput.getText().toString().trim(); ScreenshotService ss = ScreenshotService.getInstance();
+        saveSettings(); String url = serverUrl == null ? "" : AppPrefs.cleanServer(serverUrl.getText().toString().trim()); String token = tokenInput == null ? "" : tokenInput.getText().toString().trim(); ScreenshotService ss = ScreenshotService.getInstance();
         if (url.isEmpty() || token.isEmpty()) { Toast.makeText(this, "先填服务器地址和 Token", Toast.LENGTH_SHORT).show(); return; }
         if (ss == null) { DebugState.append(this, "测试失败：无障碍服务未连接"); Toast.makeText(this, "先开启无障碍服务", Toast.LENGTH_LONG).show(); openAccessibilitySettings(); return; }
         DebugState.append(this, "给老公看一眼：开始截图上传"); ss.doScreenshot(url, token); Toast.makeText(this, "正在给老公看一眼", Toast.LENGTH_SHORT).show(); updateUI();

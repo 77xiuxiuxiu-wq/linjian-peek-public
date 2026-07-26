@@ -12,6 +12,9 @@ import java.util.Map;
 public class AppPrefs {
     public static final String PREFS = "linjian_peek";
     public static final String KEY_SERVER = "server_url";
+    public static final String APP_VERSION_NAME = "0.3.4.2";
+    public static final int APP_VERSION_CODE = 30402;
+    private static final String LEGACY_RORK_HOST = "zhangxinchuang-server-rork.onrender.com";
     public static final String KEY_TOKEN = "token";
     public static final String KEY_DEVICE = "device_id";
     public static final String KEY_INTERVAL = "poll_interval_ms";
@@ -46,7 +49,38 @@ public class AppPrefs {
     public static final String KEY_HOME_TARGET_PACKAGE = "home_mode_target_package";
 
     public static SharedPreferences get(Context ctx) { return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
-    public static String server(Context ctx) { return get(ctx).getString(KEY_SERVER, ""); }
+
+    public static boolean isLegacyServer(String raw) {
+        if (raw == null) return false;
+        String s = raw.trim().toLowerCase(Locale.US);
+        return s.contains(LEGACY_RORK_HOST);
+    }
+
+    public static String cleanServer(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim();
+        if (s.equalsIgnoreCase("null") || isLegacyServer(s)) return "";
+        return s;
+    }
+
+    public static boolean migrateLegacyConfig(Context ctx) {
+        SharedPreferences prefs = get(ctx);
+        String old = prefs.getString(KEY_SERVER, "");
+        if (isLegacyServer(old)) {
+            prefs.edit()
+                .putString(KEY_SERVER, "")
+                .putBoolean("user_stopped", true)
+                .putString("server_migration_note", "旧版默认服务器地址已清空，请重新填写新的 Render 地址")
+                .apply();
+            return true;
+        }
+        return false;
+    }
+
+    public static String server(Context ctx) {
+        migrateLegacyConfig(ctx);
+        return cleanServer(get(ctx).getString(KEY_SERVER, ""));
+    }
     public static String token(Context ctx) { return get(ctx).getString(KEY_TOKEN, ""); }
     public static String device(Context ctx) { return get(ctx).getString(KEY_DEVICE, "android-phone"); }
     public static String userName(Context ctx) {
