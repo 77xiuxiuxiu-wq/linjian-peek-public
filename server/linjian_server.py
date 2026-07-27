@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""掌心窗 v0.3.4.1 unified server.
+"""掌心窗 v0.3.4.6 unified server.
 
 零依赖标准库版，负责：
 1. 给手机端下发 peek / open_app / back / home / recents / tap / swipe / set_alarm / send_notification 命令；
@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlparse
 DEFAULT_PORT = 8513
 DEFAULT_KEEP = 3
 MAX_UPLOAD_BYTES = 24 * 1024 * 1024
-VERSION = "0.3.4.1-public"
+VERSION = "0.3.4.6-public"
 DEFAULT_DEVICE = os.environ.get("LINJIAN_DEFAULT_DEVICE", "android-phone")
 
 ERR_BAD_TOKEN = "LINJIAN_ERR_BAD_TOKEN"
@@ -68,15 +68,15 @@ def load_update_info() -> dict:
             except Exception:
                 pass
     return {
-        "latest_version_name": "0.3.4.1",
-        "latest_version_code": 30401,
+        "latest_version_name": "0.3.4.6",
+        "latest_version_code": 30406,
         "apk_url": "",
         "sha256": "",
         "required": False,
         "changelog": [
             "修复部分 vivo / OriginOS 机型首次打开只显示左上角的问题",
             "优化全屏铺满与启动重测量",
-            "新增 设置 - 版本与更新，支持检查最新版和查看更新日志"
+            "新增回家目标统一、称呼同步和许可说明"
         ]
     }
 

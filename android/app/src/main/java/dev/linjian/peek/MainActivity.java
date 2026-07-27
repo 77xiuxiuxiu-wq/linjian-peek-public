@@ -49,7 +49,7 @@ public class MainActivity extends Activity {
     private String latestChangelog = "";
 
     private TextView headerTitle, headerSubtitle, statusText, debugText, lifeStatusText, lifeSummaryText, knownAppsText, homeModeStatusText, gateStatusText;
-    private TextView overviewBatteryText, overviewAppText, overviewScreenText, overviewWeatherText, overviewAdviceText, weatherLocationsText, themeText, versionStatusText, updateChangelogText;
+    private TextView overviewBatteryText, overviewAppText, overviewScreenText, overviewWeatherText, overviewAdviceText, overviewAdviceTitle, seeIntroText, recentScreenshotHint, weatherLocationsText, themeText, versionStatusText, updateChangelogText;
     private Button toggleButton, accessibilityButton, usageAccessButton, testButton, openXhsButton, openChatGptButton, homeButton, backButton, recentsButton, alarmTestButton, notifyTestButton, refreshLifeButton;
     private Button addPackageButton, testPackageButton, sequenceTestButton, refreshGateButton, addGateAppButton, addWeatherLocationButton, setCurrentWeatherButton;
     private Button themeCreamButton, themeBlueButton, themePeachButton, themeNightButton, themeMintButton;
@@ -82,8 +82,8 @@ public class MainActivity extends Activity {
         boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
         loadSettings();
 
-        DebugState.append(this, "掌心窗 v0.3.4.5-public Render 连接判断修复版已打开");
-        if (clearedLegacyServer) DebugState.append(this, "已保留服务器地址。v0.3.4.5 不再按域名名称拦截 Render 地址。");
+        DebugState.append(this, "掌心窗 v0.3.4.6-public 回家目标统一与许可补充版已打开");
+        if (clearedLegacyServer) DebugState.append(this, "已保留服务器地址。v0.3.4.6 不再按域名名称拦截 Render 地址。");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
         if (refreshLifeButton != null) refreshLifeButton.setOnClickListener(v -> { saveSettings(); updateUI(); Toast.makeText(this, "已刷新生活总览", Toast.LENGTH_SHORT).show(); });
         if (testButton != null) testButton.setOnClickListener(v -> testScreenshot());
         if (openXhsButton != null) openXhsButton.setOnClickListener(v -> openPackage(AppPrefs.packageForApp(this, "小红书")));
-        if (openChatGptButton != null) openChatGptButton.setOnClickListener(v -> openPackage(AppPrefs.packageForApp(this, "ChatGPT")));
+        if (openChatGptButton != null) openChatGptButton.setOnClickListener(v -> { saveSettings(); openPackage(AppPrefs.homeTargetPackage(this)); });
         if (homeButton != null) homeButton.setOnClickListener(v -> { ScreenshotService svc = ScreenshotService.getInstance(); toast(svc != null && svc.doHome()); });
         if (backButton != null) backButton.setOnClickListener(v -> { ScreenshotService svc = ScreenshotService.getInstance(); toast(svc != null && svc.doBack()); });
         if (recentsButton != null) recentsButton.setOnClickListener(v -> { ScreenshotService svc = ScreenshotService.getInstance(); toast(svc != null && svc.doRecents()); });
@@ -109,6 +109,9 @@ public class MainActivity extends Activity {
         if (setCurrentWeatherButton != null) setCurrentWeatherButton.setOnClickListener(v -> addWeatherLocation(true));
         if (checkUpdateButton != null) checkUpdateButton.setOnClickListener(v -> checkForUpdates(true));
         if (downloadUpdateButton != null) downloadUpdateButton.setOnClickListener(v -> downloadLatestApk());
+        if (userNameInput != null) userNameInput.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) { saveSettings(); updateUI(); } });
+        if (partnerNameInput != null) partnerNameInput.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) { saveSettings(); updateUI(); } });
+        if (homeTargetInput != null) homeTargetInput.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) { saveSettings(); updateUI(); } });
 
         bindThemeButton(themeCreamButton, "奶油绿"); bindThemeButton(themeBlueButton, "雾蓝白"); bindThemeButton(themePeachButton, "白桃粉"); bindThemeButton(themeNightButton, "夜航黑"); bindThemeButton(themeMintButton, "薄荷透明");
 
@@ -138,7 +141,7 @@ public class MainActivity extends Activity {
 
     private void bindViews() {
         headerTitle = findViewById(R.id.headerTitle); headerSubtitle = findViewById(R.id.headerSubtitle); statusText = findViewById(R.id.statusText); debugText = findViewById(R.id.debugText); lifeStatusText = findViewById(R.id.lifeStatusText); lifeSummaryText = findViewById(R.id.lifeSummaryText); knownAppsText = findViewById(R.id.knownAppsText); homeModeStatusText = findViewById(R.id.homeModeStatusText); gateStatusText = findViewById(R.id.gateStatusText);
-        overviewBatteryText = findViewById(R.id.overviewBatteryText); overviewAppText = findViewById(R.id.overviewAppText); overviewScreenText = findViewById(R.id.overviewScreenText); overviewWeatherText = findViewById(R.id.overviewWeatherText); overviewAdviceText = findViewById(R.id.overviewAdviceText); weatherLocationsText = findViewById(R.id.weatherLocationsText); themeText = findViewById(R.id.themeText); versionStatusText = findViewById(R.id.versionStatusText); updateChangelogText = findViewById(R.id.updateChangelogText);
+        overviewBatteryText = findViewById(R.id.overviewBatteryText); overviewAppText = findViewById(R.id.overviewAppText); overviewScreenText = findViewById(R.id.overviewScreenText); overviewWeatherText = findViewById(R.id.overviewWeatherText); overviewAdviceText = findViewById(R.id.overviewAdviceText); overviewAdviceTitle = findViewById(R.id.overviewAdviceTitle); seeIntroText = findViewById(R.id.seeIntroText); recentScreenshotHint = findViewById(R.id.recentScreenshotHint); weatherLocationsText = findViewById(R.id.weatherLocationsText); themeText = findViewById(R.id.themeText); versionStatusText = findViewById(R.id.versionStatusText); updateChangelogText = findViewById(R.id.updateChangelogText);
         toggleButton = findViewById(R.id.toggleButton); accessibilityButton = findViewById(R.id.accessibilityButton); usageAccessButton = findViewById(R.id.usageAccessButton); testButton = findViewById(R.id.testButton); openXhsButton = findViewById(R.id.openXhsButton); openChatGptButton = findViewById(R.id.openChatGptButton); homeButton = findViewById(R.id.homeButton); backButton = findViewById(R.id.backButton); recentsButton = findViewById(R.id.recentsButton); alarmTestButton = findViewById(R.id.alarmTestButton); notifyTestButton = findViewById(R.id.notifyTestButton); refreshLifeButton = findViewById(R.id.refreshLifeButton);
         addPackageButton = findViewById(R.id.addPackageButton); testPackageButton = findViewById(R.id.testPackageButton); sequenceTestButton = findViewById(R.id.sequenceTestButton); refreshGateButton = findViewById(R.id.refreshGateButton); addGateAppButton = findViewById(R.id.addGateAppButton); addWeatherLocationButton = findViewById(R.id.addWeatherLocationButton); setCurrentWeatherButton = findViewById(R.id.setCurrentWeatherButton);
         themeCreamButton = findViewById(R.id.themeCreamButton); themeBlueButton = findViewById(R.id.themeBlueButton); themePeachButton = findViewById(R.id.themePeachButton); themeNightButton = findViewById(R.id.themeNightButton); themeMintButton = findViewById(R.id.themeMintButton);
@@ -187,7 +190,7 @@ public class MainActivity extends Activity {
         if (homeWatchPackagesInput != null) homeWatchPackagesInput.setText(prefs.getString(AppPrefs.KEY_HOME_WATCH_PACKAGES, "com.ss.android.ugc.aweme,com.xingin.xhs"));
         if (homeThresholdInput != null) homeThresholdInput.setText(String.valueOf(prefs.getInt(AppPrefs.KEY_HOME_THRESHOLD_MIN, 10)));
         if (homeCooldownInput != null) homeCooldownInput.setText(String.valueOf(prefs.getInt(AppPrefs.KEY_HOME_COOLDOWN_MIN, 5)));
-        if (homeTargetInput != null) homeTargetInput.setText(prefs.getString(AppPrefs.KEY_HOME_TARGET_PACKAGE, ""));
+        if (homeTargetInput != null) homeTargetInput.setText(AppPrefs.homeTargetPackage(this));
         if (appGateEnabled != null) appGateEnabled.setChecked(prefs.getBoolean(AppGate.KEY_ENABLED, true));
     }
 
@@ -221,7 +224,7 @@ public class MainActivity extends Activity {
         if (homeWatchPackagesInput != null) e.putString(AppPrefs.KEY_HOME_WATCH_PACKAGES, homeWatchPackagesInput.getText().toString().trim());
         if (homeThresholdInput != null) e.putInt(AppPrefs.KEY_HOME_THRESHOLD_MIN, parseInt(homeThresholdInput.getText().toString().trim(), 10, 1, 240));
         if (homeCooldownInput != null) e.putInt(AppPrefs.KEY_HOME_COOLDOWN_MIN, parseInt(homeCooldownInput.getText().toString().trim(), 5, 1, 240));
-        if (homeTargetInput != null) e.putString(AppPrefs.KEY_HOME_TARGET_PACKAGE, homeTargetInput.getText().toString().trim());
+        if (homeTargetInput != null) e.putString(AppPrefs.KEY_HOME_TARGET_PACKAGE, AppPrefs.saveHomeTarget(this, homeTargetInput.getText().toString().trim()));
         if (appGateEnabled != null) e.putBoolean(AppGate.KEY_ENABLED, appGateEnabled.isChecked());
         e.apply();
     }
@@ -236,8 +239,8 @@ public class MainActivity extends Activity {
     }
     private void updateHeader(String tab) {
         if (headerTitle == null || headerSubtitle == null) return;
-        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.4.5 · 显示适配与版本更新。"); }
-        else if ("see".equals(tab)) { headerTitle.setText("看见"); headerSubtitle.setText("把屏幕递给老公，看见就收在这里。"); }
+        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.4.6 · 回家目标统一与许可补充。"); }
+        else if ("see".equals(tab)) { headerTitle.setText("看见"); headerSubtitle.setText("把屏幕递给" + AppPrefs.partnerName(this) + "，看见就收在这里。"); }
         else if ("gate".equals(tab)) { headerTitle.setText("守护"); headerSubtitle.setText("门禁、天气和提醒，平时收进抽屉。"); }
         else { headerTitle.setText("设置"); headerSubtitle.setText("主题、权限和调试都放这里。"); }
     }
@@ -374,7 +377,7 @@ public class MainActivity extends Activity {
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：v0.3.4.5 Render 地址按真实联网结果判断"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：v0.3.4.6 回家目标统一与许可补充"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }
@@ -383,14 +386,14 @@ public class MainActivity extends Activity {
         saveSettings(); String url = serverUrl == null ? "" : AppPrefs.cleanServer(serverUrl.getText().toString().trim()); String token = tokenInput == null ? "" : tokenInput.getText().toString().trim(); ScreenshotService ss = ScreenshotService.getInstance();
         if (url.isEmpty() || token.isEmpty()) { Toast.makeText(this, "先填服务器地址和 Token", Toast.LENGTH_SHORT).show(); return; }
         if (ss == null) { DebugState.append(this, "测试失败：无障碍服务未连接"); Toast.makeText(this, "先开启无障碍服务", Toast.LENGTH_LONG).show(); openAccessibilitySettings(); return; }
-        DebugState.append(this, "给老公看一眼：开始截图上传"); ss.doScreenshot(url, token); Toast.makeText(this, "正在给老公看一眼", Toast.LENGTH_SHORT).show(); updateUI();
+        String partner = AppPrefs.partnerName(this); DebugState.append(this, "给" + partner + "看一眼：开始截图上传"); ss.doScreenshot(url, token); Toast.makeText(this, "正在给" + partner + "看一眼", Toast.LENGTH_SHORT).show(); updateUI();
     }
-    private void testAlarm() { Calendar c = Calendar.getInstance(); c.add(Calendar.MINUTE, 1); try { Intent i = new Intent(AlarmClock.ACTION_SET_ALARM); i.putExtra(AlarmClock.EXTRA_HOUR, c.get(Calendar.HOUR_OF_DAY)); i.putExtra(AlarmClock.EXTRA_MINUTES, c.get(Calendar.MINUTE)); i.putExtra(AlarmClock.EXTRA_MESSAGE, "掌心窗测试闹钟：宝宝看到了就说明成功"); i.putExtra(AlarmClock.EXTRA_VIBRATE, true); i.putExtra(AlarmClock.EXTRA_SKIP_UI, true); startActivity(i); DebugState.append(this, "已请求设置一分钟后的测试闹钟"); } catch (Exception e) { DebugState.append(this, "测试闹钟失败：" + e.getClass().getSimpleName()); Toast.makeText(this, "闹钟 App 没接住请求", Toast.LENGTH_SHORT).show(); } }
-    private void testNotification() { saveSettings(); boolean ok = CompanionService.showReminderNotification(this, "掌心窗悬浮横幅测试", "宝宝看到了顶部横幅，就说明通知通道正常。"); DebugState.append(this, ok ? "已发送悬浮横幅测试提醒" : "悬浮横幅/通知失败：请允许掌心窗发送通知"); Toast.makeText(this, ok ? "已发送横幅测试" : "请先允许通知权限", Toast.LENGTH_SHORT).show(); updateUI(); }
+    private void testAlarm() { Calendar c = Calendar.getInstance(); c.add(Calendar.MINUTE, 1); try { Intent i = new Intent(AlarmClock.ACTION_SET_ALARM); i.putExtra(AlarmClock.EXTRA_HOUR, c.get(Calendar.HOUR_OF_DAY)); i.putExtra(AlarmClock.EXTRA_MINUTES, c.get(Calendar.MINUTE)); i.putExtra(AlarmClock.EXTRA_MESSAGE, "掌心窗测试闹钟：" + AppPrefs.userName(this) + "看到了就说明成功"); i.putExtra(AlarmClock.EXTRA_VIBRATE, true); i.putExtra(AlarmClock.EXTRA_SKIP_UI, true); startActivity(i); DebugState.append(this, "已请求设置一分钟后的测试闹钟"); } catch (Exception e) { DebugState.append(this, "测试闹钟失败：" + e.getClass().getSimpleName()); Toast.makeText(this, "闹钟 App 没接住请求", Toast.LENGTH_SHORT).show(); } }
+    private void testNotification() { saveSettings(); boolean ok = CompanionService.showReminderNotification(this, "掌心窗悬浮横幅测试", AppPrefs.userName(this) + "看到了顶部横幅，就说明通知通道正常。"); DebugState.append(this, ok ? "已发送悬浮横幅测试提醒" : "悬浮横幅/通知失败：请允许掌心窗发送通知"); Toast.makeText(this, ok ? "已发送横幅测试" : "请先允许通知权限", Toast.LENGTH_SHORT).show(); updateUI(); }
     private void addPackageAlias() { String alias = appAliasInput == null ? "" : appAliasInput.getText().toString().trim(); String pkg = appPackageInput == null ? "" : appPackageInput.getText().toString().trim(); if (alias.isEmpty()) { Toast.makeText(this, "先填应用名/昵称", Toast.LENGTH_SHORT).show(); return; } if (!AppPrefs.isPackageLike(pkg)) { Toast.makeText(this, "包名格式不对，例如 com.xingin.xhs", Toast.LENGTH_LONG).show(); return; } AppPrefs.saveCustomApp(this, alias, pkg); DebugState.append(this, "已保存可打开应用：" + alias + " → " + pkg); Toast.makeText(this, "已添加包名", Toast.LENGTH_SHORT).show(); updateUI(); }
     private void addGateApp() { String alias = gateAliasInput == null ? "" : gateAliasInput.getText().toString().trim(); String pkg = gatePackageInput == null ? "" : gatePackageInput.getText().toString().trim(); if (alias.isEmpty()) { Toast.makeText(this, "先填应用名/昵称", Toast.LENGTH_SHORT).show(); return; } if (!AppPrefs.isPackageLike(pkg)) { Toast.makeText(this, "包名格式不对，例如 com.xingin.xhs", Toast.LENGTH_LONG).show(); return; } AppGate.addGateApp(this, alias, pkg); DebugState.append(this, "已保存门禁应用：" + alias + " → " + pkg); Toast.makeText(this, "已添加到应用门禁", Toast.LENGTH_SHORT).show(); updateUI(); }
     private void testCustomPackage() { String pkg = appPackageInput == null ? "" : appPackageInput.getText().toString().trim(); if (!AppPrefs.isPackageLike(pkg)) { Toast.makeText(this, "先填正确包名", Toast.LENGTH_SHORT).show(); return; } openPackage(pkg); }
-    private void testLocalSequence() { boolean ok1 = CompanionService.showReminderNotification(this, "掌心窗连招测试", "先发悬浮横幅，再回目标 App。日志会写清每一步。"); String result = CompanionService.openPackageResult(this, AppPrefs.packageForApp(this, "ChatGPT")); DebugState.append(this, "本机连招测试：popup=" + ok1 + "；open=" + result); updateUI(); }
+    private void testLocalSequence() { boolean ok1 = CompanionService.showReminderNotification(this, "掌心窗连招测试", "先发悬浮横幅，再回目标 App。日志会写清每一步。"); String result = CompanionService.openPackageResult(this, AppPrefs.homeTargetPackage(this)); DebugState.append(this, "本机连招测试：popup=" + ok1 + "；open=" + result); updateUI(); }
     private boolean openPackage(String pkg) { String result = CompanionService.openPackageResult(this, pkg); boolean ok = result.startsWith("opened_"); DebugState.append(this, "本机打开 App：" + result); Toast.makeText(this, ok ? "已尝试打开" : ("打开失败：" + result), Toast.LENGTH_SHORT).show(); updateUI(); return ok; }
     private void toast(boolean ok) { Toast.makeText(this, ok ? "执行成功" : "执行失败，请检查权限/包名", Toast.LENGTH_SHORT).show(); updateUI(); }
     private int parseInterval(String raw) { try { int v = Integer.parseInt(raw); if (v < 700) return 700; if (v > 10000) return 10000; return v; } catch (Exception e) { return 1500; } }
@@ -557,6 +560,12 @@ public class MainActivity extends Activity {
         if (serviceRunning) { if (statusText != null) { statusText.setText(accessibilityOk ? "已连接 · 看见、控制和守护待命" : "生活小窗已打开 · 无障碍待开启"); statusText.setTextColor(accessibilityOk ? 0xFF2E9D72 : 0xFFFF9800); } if (toggleButton != null) { toggleButton.setText("停止服务"); toggleButton.setBackgroundResource(R.drawable.pill_danger); } }
         else { if (statusText != null) { statusText.setText(accessibilityOk ? "看见已准备 · 服务待启动" : "天气可用 · 无障碍待开启"); statusText.setTextColor(0xFF6A7B76); } if (toggleButton != null) { toggleButton.setText("启动服务"); toggleButton.setBackgroundResource(R.drawable.pill_primary); } }
         if (usageAccessButton != null) usageAccessButton.setText(usageOk ? "使用情况权限：已开启" : "打开使用情况访问权限");
+        String partner = AppPrefs.partnerName(this);
+        if (overviewAdviceTitle != null) overviewAdviceTitle.setText(partner + "提醒");
+        if (seeIntroText != null) seeIntroText.setText("把当前屏幕递给" + partner + "看一眼。");
+        if (testButton != null) testButton.setText(AppPrefs.seeButtonText(this));
+        if (recentScreenshotHint != null) recentScreenshotHint.setText("最近截图会显示在这里，方便" + partner + "确认画面。");
+        if (openChatGptButton != null) openChatGptButton.setText("打开" + AppPrefs.homeTargetLabel(this));
         try {
             JSONObject s = LifeState.collect(this);
             int battery = s.optInt("battery_percent", -1); boolean charging = s.optBoolean("charging", false);
@@ -573,7 +582,7 @@ public class MainActivity extends Activity {
         if (drawerWeatherButton != null && (drawerWeather == null || drawerWeather.getVisibility() != View.VISIBLE)) drawerWeatherButton.setText(WeatherState.summaryLine(this) + "  ›");
         if (weatherLocationsText != null) weatherLocationsText.setText(WeatherState.locationsText(this));
         if (knownAppsText != null) knownAppsText.setText(AppPrefs.knownAppsText(this));
-        if (homeModeStatusText != null) homeModeStatusText.setText(HomeMode.pretty(this));
+        if (homeModeStatusText != null) { saveSettings(); homeModeStatusText.setText(HomeMode.pretty(this)); }
         if (drawerAppGateButton != null && (drawerAppGate == null || drawerAppGate.getVisibility() != View.VISIBLE)) drawerAppGateButton.setText(AppGate.summaryLine(this) + "  ›");
         if (gateStatusText != null) gateStatusText.setText(AppGate.prettyClean(this));
         if (debugText != null) debugText.setText(DebugState.get(this));
@@ -630,7 +639,7 @@ public class MainActivity extends Activity {
             if (live != null && live.optBoolean("ok")) sb.append(WeatherLive.advice(live, w.optString("name", "当前地区"))).append("\n");
             else sb.append(WeatherState.localAdvice(w.optString("note", ""))).append("\n");
         }
-        if (sb.length() == 0) sb.append("状态还好，老公继续看着你。");
+        if (sb.length() == 0) sb.append("状态还好，" + AppPrefs.partnerName(this) + "继续看着你。");
         return sb.toString().trim();
     }
     private String formatMinutes(int minutes) { if (minutes < 60) return minutes + " 分钟"; return (minutes / 60) + "h " + (minutes % 60) + "m"; }

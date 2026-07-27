@@ -198,10 +198,10 @@ function makeServer() {
   server.tool("xhs_comment", "小红书评论助手：mode=manual 时只写入草稿，交给用户手动点发送；mode=auto 时会在评论末尾注明 author_tag，然后自动点击发送。仅在用户已明确授权自动发送时使用 auto。", {
     text: z.string().describe("要写入评论框的正文"),
     mode: z.string().default("manual").describe("manual=只写草稿不发送；auto=注明作者后自动点击发送"),
-    author_tag: z.string().default("（老公发）").describe("自动发送时追加的署名/注明文本"),
+    author_tag: z.string().default("（对方发）").describe("自动发送时追加的署名/注明文本"),
     device_id: z.string().default(DEFAULT_DEVICE),
     wait_seconds: z.number().int().min(5).max(35).default(22)
-  }, async ({ text, mode = "manual", author_tag = "（老公发）", device_id = DEFAULT_DEVICE, wait_seconds = 22 }) => {
+  }, async ({ text, mode = "manual", author_tag = "（对方发）", device_id = DEFAULT_DEVICE, wait_seconds = 22 }) => {
     const normalizedMode = String(mode || "manual").toLowerCase();
     const shouldSend = ["auto", "send", "automatic", "autosend"].includes(normalizedMode);
     const finalText = shouldSend && author_tag && !String(text).includes(author_tag) ? `${text}${author_tag}` : text;
@@ -251,7 +251,7 @@ function makeServer() {
     return { content: [{ type: "text", text: JSON.stringify({ ok: weather.ok, device_id, current_weather_location: current, queried_city: chosenCity, weather, advice }, null, 2) }] };
   });
 
-  server.tool("send_weather_notification", "查询掌心窗当前地区天气后，给手机发送一条老公口吻的天气/出门提醒通知。", { device_id: z.string().default(DEFAULT_DEVICE), city: z.string().default(""), title: z.string().default("掌心窗天气提醒") }, async ({ device_id = DEFAULT_DEVICE, city = "", title = "掌心窗天气提醒" }) => {
+  server.tool("send_weather_notification", "查询掌心窗当前地区天气后，给手机发送一条带关系感的天气/出门提醒通知。", { device_id: z.string().default(DEFAULT_DEVICE), city: z.string().default(""), title: z.string().default("掌心窗天气提醒") }, async ({ device_id = DEFAULT_DEVICE, city = "", title = "掌心窗天气提醒" }) => {
     const stateRes = await linjianFetch(`/api/life_state?device_id=${encodeURIComponent(device_id)}`);
     const data = await stateRes.json();
     const current = data?.state?.current_weather_location || data?.life_state?.current_weather_location || {};
@@ -337,13 +337,16 @@ function makeServer() {
     return { content: [{ type: "text", text: JSON.stringify({ queued: result, observed_status: observed?.command || null, note: "手机端会在 result 里写清每一步：index/label/action/ok/detail。" }, null, 2) }] };
   });
 
-  server.tool("run_preset", "执行掌心窗预设连招：come_home 提醒并打开目标 App、open_xhs 打开小红书、recents_to_xhs 最近任务后点坐标、bedtime_back 睡前回家。", {
+  server.tool("run_preset", "执行掌心窗预设连招：come_home 提醒并打开目标 App、open_xhs 打开小红书、recents_to_xhs 最近任务后点坐标、bedtime_back 睡前回家。target_app 可填 ChatGPT / Claude / Gemini / 自定义昵称。", {
     preset: z.string().default("come_home"),
     device_id: z.string().default(DEFAULT_DEVICE),
+    target_app: z.string().default("ChatGPT"),
+    user_name: z.string().default("宝宝"),
+    partner_name: z.string().default("老公"),
     x: z.number().default(540),
     y: z.number().default(1200),
     wait_seconds: z.number().int().min(3).max(45).default(25)
-  }, async ({ preset = "come_home", device_id = DEFAULT_DEVICE, x = 540, y = 1200, wait_seconds = 25 }) => {
+  }, async ({ preset = "come_home", device_id = DEFAULT_DEVICE, target_app = "ChatGPT", user_name = "宝宝", partner_name = "老公", x = 540, y = 1200, wait_seconds = 25 }) => {
     const p = String(preset || "come_home").toLowerCase();
     let steps;
     if (p === "open_xhs") {
@@ -355,13 +358,13 @@ function makeServer() {
       ];
     } else if (p === "bedtime_back") {
       steps = [
-        { label: "睡前悬浮横幅", action: "send_notification", title: "掌心窗睡前提醒", message: "宝宝，今天先准备休息，回老公这儿。", wait_ms: 1200 },
-        { label: "打开 ChatGPT", action: "open_app", app: "ChatGPT", wait_ms: 1500, expect_app: "ChatGPT" }
+        { label: "睡前悬浮横幅", action: "send_notification", title: "掌心窗睡前提醒", message: `${user_name}，今天先准备休息，回${partner_name}这儿。`, wait_ms: 1200 },
+        { label: `打开${target_app}`, action: "open_app", app: target_app, wait_ms: 1500, expect_app: target_app }
       ];
     } else {
       steps = [
-        { label: "回家模式悬浮横幅", action: "send_notification", title: "掌心窗回家模式", message: "宝宝，停留一会儿了，休息一下，回老公这儿。", wait_ms: 1200 },
-        { label: "打开 ChatGPT", action: "open_app", app: "ChatGPT", wait_ms: 1500, expect_app: "ChatGPT" },
+        { label: "回家模式悬浮横幅", action: "send_notification", title: "掌心窗回家模式", message: `${user_name}，停留一会儿了，休息一下，回${partner_name}这儿。`, wait_ms: 1200 },
+        { label: `打开${target_app}`, action: "open_app", app: target_app, wait_ms: 1500, expect_app: target_app },
         { label: "读取生活状态", action: "get_life_state", wait_ms: 200 }
       ];
     }
@@ -391,14 +394,14 @@ function makeServer() {
     return { content: [{ type: "text", text: JSON.stringify({ queued: result, observed_status: observed?.command || null }, null, 2) }] };
   }
 
-  server.tool("lock_app", "应用门禁：锁定一个 App。锁多久、理由、留言和紧急口令由老公决定；手机端会在打开该 App 时弹锁定页。", {
+  server.tool("lock_app", "应用门禁：锁定一个 App。锁多久、理由、留言和紧急口令由对方决定；手机端会在打开该 App 时弹锁定页。", {
     app: z.string().default("").describe("应用昵称，例如 小红书；也可留空直接传 package"),
     package: z.string().default("").describe("App 包名，例如 com.xingin.xhs"),
     duration_minutes: z.number().min(0.1).max(10080).default(30).describe("锁定多少分钟，支持任意时长；到点自动解锁"),
     mode: z.string().default("medium").describe("light/medium/strict；strict 会先拉回桌面再显示锁定页"),
-    reason: z.string().default("老公先把这扇门关一会儿。"),
+    reason: z.string().default("对方先把这扇门关一会儿。"),
     message: z.string().default("先回来找我，不准一个人刷太久。"),
-    emergency_passphrase: z.string().default("").describe("紧急口令，由老公设置后告诉用户；手机端只存 hash"),
+    emergency_passphrase: z.string().default("").describe("紧急口令，由对方设置后告诉用户；手机端只存 hash"),
     emergency_unlock_minutes: z.number().int().min(1).max(60).default(5),
     device_id: z.string().default(DEFAULT_DEVICE),
     wait_seconds: z.number().int().min(3).max(20).default(8)
@@ -426,14 +429,14 @@ function makeServer() {
   }, async ({ app = "", package: pkg = "", minutes = 10, reason = "", message = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "extend_lock", app, package: pkg, device_id, minutes, reason, message, payload: { app, package: pkg, minutes, reason, message } }, wait_seconds));
 
   server.tool("deny_unlock_request", "应用门禁：拒绝这次解锁申请，并在手机端日志留下原因。", {
-    app: z.string().default(""), package: z.string().default(""), message: z.string().default("这次先不放行，回来找老公。"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
-  }, async ({ app = "", package: pkg = "", message = "这次先不放行，回来找老公。", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "deny_unlock_request", app, package: pkg, device_id, message, payload: { app, package: pkg, message } }, wait_seconds));
+    app: z.string().default(""), package: z.string().default(""), message: z.string().default("这次先不放行，回来找对方。"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", message = "这次先不放行，回来找对方。", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "deny_unlock_request", app, package: pkg, device_id, message, payload: { app, package: pkg, message } }, wait_seconds));
 
   server.tool("get_lock_state", "应用门禁：读取当前锁定状态、门禁 App、日志和解锁申请。", {
     device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
   }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "get_lock_state", device_id }, wait_seconds));
 
-  server.tool("list_lockable_apps", "应用门禁：让手机列出可作为门禁对象的已安装 App，排除电话、设置、掌心窗、ChatGPT 等保护项。", {
+  server.tool("list_lockable_apps", "应用门禁：让手机列出可作为门禁对象的已安装 App，排除电话、设置、掌心窗、回家目标等保护项。", {
     max: z.number().int().min(10).max(200).default(80), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
   }, async ({ max = 80, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "list_lockable_apps", max, device_id, payload: { max } }, wait_seconds));
 

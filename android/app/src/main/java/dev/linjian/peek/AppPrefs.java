@@ -12,8 +12,8 @@ import java.util.Map;
 public class AppPrefs {
     public static final String PREFS = "linjian_peek";
     public static final String KEY_SERVER = "server_url";
-    public static final String APP_VERSION_NAME = "0.3.4.5";
-    public static final int APP_VERSION_CODE = 30405;
+    public static final String APP_VERSION_NAME = "0.3.4.6";
+    public static final int APP_VERSION_CODE = 30406;
     public static final String KEY_TOKEN = "token";
     public static final String KEY_DEVICE = "device_id";
     public static final String KEY_INTERVAL = "poll_interval_ms";
@@ -46,11 +46,12 @@ public class AppPrefs {
     public static final String KEY_HOME_THRESHOLD_MIN = "home_mode_threshold_min";
     public static final String KEY_HOME_COOLDOWN_MIN = "home_mode_cooldown_min";
     public static final String KEY_HOME_TARGET_PACKAGE = "home_mode_target_package";
+    public static final String DEFAULT_HOME_TARGET_PACKAGE = "com.openai.chatgpt";
 
     public static SharedPreferences get(Context ctx) { return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
 
     /**
-     * v0.3.4.5：不再按域名黑名单拦截 Render 地址。
+     * v0.3.4.6：不再按域名黑名单拦截 Render 地址。
      * 用户自己的服务名可能包含 rork、test、demo 等任意词，App 只按真实联网结果判断。
      */
     public static boolean isLegacyServer(String raw) {
@@ -81,7 +82,7 @@ public class AppPrefs {
     }
 
     public static boolean migrateLegacyConfig(Context ctx) {
-        // v0.3.4.5：不迁移、不清空、不拦截任何 onrender.com 地址。
+        // v0.3.4.6：不迁移、不清空、不拦截任何 onrender.com 地址。
         return false;
     }
 
@@ -98,6 +99,38 @@ public class AppPrefs {
         String v = get(ctx).getString(KEY_PARTNER_NICKNAME, "老公");
         return (v == null || v.trim().isEmpty()) ? "老公" : v.trim();
     }
+
+    public static String homeTargetPackage(Context ctx) {
+        String raw = get(ctx).getString(KEY_HOME_TARGET_PACKAGE, DEFAULT_HOME_TARGET_PACKAGE);
+        if (raw == null || raw.trim().isEmpty()) return DEFAULT_HOME_TARGET_PACKAGE;
+        String resolved = packageForApp(ctx, raw.trim());
+        return (resolved == null || resolved.trim().isEmpty()) ? DEFAULT_HOME_TARGET_PACKAGE : resolved.trim();
+    }
+
+    public static String homeTargetLabel(Context ctx) {
+        String target = homeTargetPackage(ctx);
+        for (Map.Entry<String, String> e : allApps(ctx).entrySet()) {
+            if (target.equals(e.getValue())) return e.getKey();
+        }
+        return target;
+    }
+
+    public static String returnButtonText(Context ctx) {
+        return "回" + partnerName(ctx) + "这儿";
+    }
+
+    public static String seeButtonText(Context ctx) {
+        return "给" + partnerName(ctx) + "看一眼";
+    }
+
+    public static String saveHomeTarget(Context ctx, String raw) {
+        String v = raw == null ? "" : raw.trim();
+        if (v.isEmpty()) return DEFAULT_HOME_TARGET_PACKAGE;
+        String pkg = packageForApp(ctx, v);
+        if (pkg != null && pkg.trim().length() > 0) return pkg.trim();
+        return v;
+    }
+
     public static int interval(Context ctx) { return Math.max(700, get(ctx).getInt(KEY_INTERVAL, 1500)); }
 
     public static Map<String, String> defaultApps() {

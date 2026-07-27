@@ -89,7 +89,7 @@ public class ScreenshotService extends AccessibilityService {
         super.onServiceConnected();
         instance = this;
         boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
-        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.5");
+        DebugState.append(this, "无障碍服务已连接：截图/读屏/节点坐标/应用门禁可用 v0.3.4.6");
         if (clearedLegacyServer) DebugState.append(this, "检测到旧版默认服务器地址。请部署自己的 Render 服务后填写新的服务器地址。");
         watchdog = new Handler(Looper.getMainLooper());
         watchdog.postDelayed(watchdogTick, 15000);
@@ -120,7 +120,7 @@ public class ScreenshotService extends AccessibilityService {
         backgroundPollThread = new HandlerThread("LinjianAccessibilityPoll");
         backgroundPollThread.start();
         backgroundPollHandler = new Handler(backgroundPollThread.getLooper());
-        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.5，将读取连接设置里的实际地址");
+        DebugState.append(this, "无障碍后台轮询已启动 v0.3.4.6，将读取连接设置里的实际地址");
         backgroundPollHandler.postDelayed(backgroundPollTick, 1000);
     }
 

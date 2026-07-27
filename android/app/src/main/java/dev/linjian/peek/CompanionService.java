@@ -58,7 +58,7 @@ public class CompanionService extends Service {
             DebugState.append(this, "服务启动失败：服务器地址或 Token 为空");
             stopSelf(); return START_NOT_STICKY;
         }
-        DebugState.append(this, "掌心窗 v0.3.4.5 服务已启动，实际连接地址：" + serverUrl);
+        DebugState.append(this, "掌心窗 v0.3.4.6 服务已启动，实际连接地址：" + serverUrl);
         if (!running) { running = true; startPolling(); } else DebugState.append(this, "服务已在运行，继续轮询");
         return START_STICKY;
     }
@@ -249,7 +249,7 @@ public class CompanionService extends Service {
                 long duration = step.optLong("duration", 350);
                 int hour = step.optInt("hour", -1); int minute = step.optInt("minute", -1);
                 String title = step.optString("title", "掌心窗提醒");
-                String message = step.optString("message", "宝宝，看一眼这里。");
+                String message = step.optString("message", AppPrefs.userName(ctx) + "，看一眼这里。");
                 boolean vibrate = step.optBoolean("vibrate", true);
                 boolean skipUi = step.optBoolean("skip_ui", true);
                 String targetText = step.optString("target_text", step.optString("query", ""));
@@ -343,7 +343,7 @@ public class CompanionService extends Service {
             NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return false;
             String safeTitle = (title == null || title.trim().isEmpty()) ? "掌心窗提醒" : title.trim();
-            String safeMessage = (message == null || message.trim().isEmpty()) ? "宝宝，看一眼这里。" : message.trim();
+            String safeMessage = (message == null || message.trim().isEmpty()) ? (AppPrefs.userName(ctx) + "，看一眼这里。") : message.trim();
 
             Intent detail = new Intent(ctx, ReminderActivity.class);
             detail.putExtra("title", safeTitle);

@@ -29,7 +29,7 @@
             android:id="@+id/headerSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="v0.3.4.5-public · 显示适配与版本更新。"
+            android:text="v0.3.4.6-public · 回家模式目标统一与许可补充。"
             android:textSize="11sp"
             android:textColor="#FF7E928C"
             android:layout_marginTop="4dp" />
@@ -73,6 +73,7 @@
                     android:layout_marginBottom="8dp">
 
                     <TextView
+                        android:id="@+id/overviewAdviceTitle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="老公提醒"
@@ -198,7 +199,7 @@
                     android:layout_marginBottom="8dp">
 
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="看见" android:textStyle="bold" android:textSize="16sp" android:textColor="#FF2D3E39" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="把当前屏幕递给老公看一眼。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
+                    <TextView android:id="@+id/seeIntroText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="把当前屏幕递给老公看一眼。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
 
                     <Button
                         android:id="@+id/testButton"
@@ -219,7 +220,7 @@
                     android:layout_marginBottom="8dp">
 
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="最近一次看见" android:textStyle="bold" android:textSize="15sp" android:textColor="#FF2D3E39" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="最近截图会显示在这里，方便老公确认画面。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
+                    <TextView android:id="@+id/recentScreenshotHint" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="最近截图会显示在这里，方便老公确认画面。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -306,7 +307,7 @@
                     <EditText android:id="@+id/homeWatchPackagesInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="观察包名，用逗号分隔" android:textSize="11sp" android:singleLine="true" />
                     <EditText android:id="@+id/homeThresholdInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="阈值分钟，默认 10" android:textSize="11sp" android:inputType="number" android:singleLine="true" />
                     <EditText android:id="@+id/homeCooldownInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="冷却分钟，默认 5" android:textSize="11sp" android:inputType="number" android:singleLine="true" />
-                    <EditText android:id="@+id/homeTargetInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="目标包名，默认 com.openai.chatgpt" android:textSize="11sp" android:singleLine="true" />
+                    <EditText android:id="@+id/homeTargetInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="目标 App，可填 ChatGPT / Claude / 包名" android:textSize="11sp" android:singleLine="true" />
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
@@ -338,8 +339,9 @@
                 <Button android:id="@+id/drawerVersionButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="版本与更新  ›" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginBottom="8dp" />
                 <LinearLayout android:id="@+id/drawerVersion" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/card_bg" android:visibility="gone" android:layout_marginBottom="8dp">
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="版本与更新" android:textStyle="bold" android:textSize="15sp" android:textColor="#FF2D3E39" />
-                    <TextView android:id="@+id/versionStatusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="当前版本 v0.3.4.5" android:textSize="11sp" android:textColor="#FF596D66" android:layout_marginTop="6dp" android:lineSpacingExtra="3dp" />
+                    <TextView android:id="@+id/versionStatusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="当前版本 v0.3.4.6" android:textSize="11sp" android:textColor="#FF596D66" android:layout_marginTop="6dp" android:lineSpacingExtra="3dp" />
                     <TextView android:id="@+id/updateChangelogText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="点击检查更新，可查看更新日志并下载最新版。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
+                    <TextView android:id="@+id/licenseSummaryText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="许可：允许个人学习、自用部署和本地修改；未经授权不得改名分发、发布衍生 APK、商业售卖或移除原作者说明。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
                     <Button android:id="@+id/checkUpdateButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="检查更新" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginTop="8dp" />
                     <Button android:id="@+id/downloadUpdateButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="下载最新版" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -373,7 +375,7 @@
 
                 <Button android:id="@+id/drawerControlTestButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="本机测试工具  ›" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginBottom="8dp" />
                 <LinearLayout android:id="@+id/drawerControlTest" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/card_bg" android:visibility="gone" android:layout_marginBottom="8dp">
-                    <Button android:id="@+id/openChatGptButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="打开 ChatGPT" android:textSize="11sp" android:background="@drawable/pill_soft" />
+                    <Button android:id="@+id/openChatGptButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="打开回家目标" android:textSize="11sp" android:background="@drawable/pill_soft" />
                     <Button android:id="@+id/openXhsButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="打开小红书" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginTop="6dp" />
                     <Button android:id="@+id/recentsButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="最近任务" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginTop="6dp" />
                     <Button android:id="@+id/homeButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="回桌面" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginTop="6dp" />

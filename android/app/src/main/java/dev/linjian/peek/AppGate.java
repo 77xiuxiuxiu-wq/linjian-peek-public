@@ -135,7 +135,7 @@ public class AppGate {
         lock.put("locked_until_ms", until);
         lock.put("locked_until_local", formatLocal(until));
         lock.put("mode", normalizeMode(cmd.optString("mode", "medium")));
-        lock.put("reason", cmd.optString("reason", "老公先把这扇门关一会儿。"));
+        lock.put("reason", cmd.optString("reason", AppPrefs.partnerName(ctx) + "先把这扇门关一会儿。"));
         lock.put("message", cmd.optString("message", "先回来找我，不准一个人刷太久。"));
         lock.put("created_at_ms", System.currentTimeMillis());
         lock.put("emergency_unlock_minutes", Math.max(1, cmd.optInt("emergencyUnlockMinutes", cmd.optInt("emergency_unlock_minutes", 5))));
@@ -196,7 +196,7 @@ public class AppGate {
 
     private static JSONObject denyUnlock(Context ctx, JSONObject cmd) throws Exception {
         String pkg = resolvePackage(ctx, cmd);
-        String msg = cmd.optString("message", cmd.optString("reason", "老公拒绝了这次解锁申请。"));
+        String msg = cmd.optString("message", cmd.optString("reason", AppPrefs.partnerName(ctx) + "拒绝了这次解锁申请。"));
         log(ctx, "拒绝解锁申请：" + pkg + "；" + msg);
         return put(new JSONObject(), true, "denied_unlock_request:" + pkg + ":" + msg);
     }
@@ -393,7 +393,7 @@ public class AppGate {
     }
 
     private static String[] protectedPackages(Context ctx) {
-        return new String[]{SELF_PACKAGE, AppPrefs.packageForApp(ctx, "ChatGPT"), "com.android.settings", "com.android.phone", "com.google.android.dialer", "com.android.contacts", "com.android.mms", "com.eg.android.AlipayGphone"};
+        return new String[]{SELF_PACKAGE, AppPrefs.homeTargetPackage(ctx), "com.android.settings", "com.android.phone", "com.google.android.dialer", "com.android.contacts", "com.android.mms", "com.eg.android.AlipayGphone"};
     }
 
     private static boolean isProtectedPackage(Context ctx, String pkg) {

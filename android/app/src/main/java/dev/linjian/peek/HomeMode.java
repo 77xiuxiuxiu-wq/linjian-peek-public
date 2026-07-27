@@ -23,7 +23,7 @@ public class HomeMode {
             o.put("watch_packages", p.getString(AppPrefs.KEY_HOME_WATCH_PACKAGES, "com.ss.android.ugc.aweme,com.xingin.xhs"));
             o.put("threshold_minutes", p.getInt(AppPrefs.KEY_HOME_THRESHOLD_MIN, 10));
             o.put("cooldown_minutes", p.getInt(AppPrefs.KEY_HOME_COOLDOWN_MIN, 5));
-            o.put("target_package", p.getString(AppPrefs.KEY_HOME_TARGET_PACKAGE, "com.openai.chatgpt"));
+            o.put("target_package", AppPrefs.homeTargetPackage(ctx));
         } catch (Exception ignored) { }
         return o;
     }
@@ -35,7 +35,7 @@ public class HomeMode {
             return "回家模式：开启" + (p.getBoolean(AppPrefs.KEY_HOME_MODE_FORCE, false) ? "（强制抱回）" : "（只弹窗）") +
                     "\n盯住：" + p.getString(AppPrefs.KEY_HOME_WATCH_PACKAGES, "com.ss.android.ugc.aweme,com.xingin.xhs") +
                     "\n超过：" + p.getInt(AppPrefs.KEY_HOME_THRESHOLD_MIN, 10) + " 分钟  冷却：" + p.getInt(AppPrefs.KEY_HOME_COOLDOWN_MIN, 5) + " 分钟" +
-                    "\n抱回：" + p.getString(AppPrefs.KEY_HOME_TARGET_PACKAGE, "com.openai.chatgpt");
+                    "\n抱回：" + AppPrefs.homeTargetLabel(ctx) + "（" + AppPrefs.homeTargetPackage(ctx) + "）";
         } catch (Exception e) { return "回家模式读取失败：" + ScreenshotService.shortMsg(e); }
     }
 
@@ -45,7 +45,7 @@ public class HomeMode {
             if (!p.getBoolean(AppPrefs.KEY_HOME_MODE_ENABLED, false)) return;
             String pkg = state.optString("current_package", "").trim();
             if (pkg.length() == 0 || pkg.equals(ctx.getPackageName())) return;
-            String target = p.getString(AppPrefs.KEY_HOME_TARGET_PACKAGE, "com.openai.chatgpt").trim();
+            String target = AppPrefs.homeTargetPackage(ctx).trim();
             if (pkg.equals(target)) { resetCurrent(p); return; }
             if (!isWatched(p.getString(AppPrefs.KEY_HOME_WATCH_PACKAGES, "com.ss.android.ugc.aweme,com.xingin.xhs"), pkg)) { resetCurrent(p); return; }
 

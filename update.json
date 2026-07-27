@@ -1,14 +1,14 @@
 {
-  "latest_version_name": "0.3.4.5",
-  "latest_version_code": 30405,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.4.5/Zhangxinchuang-public-v0.3.4.5.apk",
+  "latest_version_name": "0.3.4.6",
+  "latest_version_code": 30406,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.4.6/Zhangxinchuang-public-v0.3.4.6.apk",
   "sha256": "",
   "required": false,
   "changelog": [
-    "取消 rork / 指定 Render 域名黑名单，避免误拦用户自己的 onrender.com 服务",
-    "服务器地址改为按真实联网结果判断，允许保存和连接所有自建 Render 地址",
-    "连接失败时日志会区分 DNS 解析失败、Render 冷启动、Token 不一致、接口不匹配和服务器错误",
-    "地址输入支持自动清理 /health、/api/poll、/api/state、/api/screenshot、/mcp 等常见路径",
-    "保留 v0.3.4 系列显示适配、版本更新和禁用自动备份修复"
+    "修复回家模式目标 App 与提醒按钮不一致的问题：目标可填 ChatGPT / Claude / Gemini / 自定义包名",
+    "通知详情页的“回到对方这里”按钮会统一打开回家模式目标 App，不再写死 ChatGPT",
+    "设置里的对方称呼会同步到老公提醒、看一眼、回家模式、门禁页等文案；默认仍保留“宝宝 / 老公”的关系感",
+    "补充项目许可策略：允许个人学习、自用部署和本地修改；未经授权不得改名分发、发布衍生 APK、商业售卖或移除原作者说明",
+    "版本与更新面板新增许可摘要，方便用户查看当前授权边界"
   ]
 }

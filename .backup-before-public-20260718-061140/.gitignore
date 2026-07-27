@@ -1,9 +1,0 @@
-.env
-server/.env
-mcp/.env
-server/data/
-*.pyc
-__pycache__/
-.DS_Store
-node_modules/
-android/*.apk
