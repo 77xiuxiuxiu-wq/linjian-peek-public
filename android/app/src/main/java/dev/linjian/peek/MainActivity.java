@@ -49,20 +49,25 @@ public class MainActivity extends Activity {
     private String latestChangelog = "";
 
     private TextView headerTitle, headerSubtitle, statusText, debugText, lifeStatusText, lifeSummaryText, knownAppsText, homeModeStatusText, gateStatusText;
+    private TextView guidianSummaryText, guidianDetailText, guidianSettingsStatusText;
     private TextView overviewBatteryText, overviewAppText, overviewScreenText, overviewWeatherText, overviewAdviceText, overviewAdviceTitle, seeIntroText, recentScreenshotHint, weatherLocationsText, themeText, versionStatusText, updateChangelogText;
     private Button toggleButton, accessibilityButton, usageAccessButton, testButton, openXhsButton, openChatGptButton, homeButton, backButton, recentsButton, alarmTestButton, notifyTestButton, refreshLifeButton;
     private Button addPackageButton, testPackageButton, sequenceTestButton, refreshGateButton, addGateAppButton, addWeatherLocationButton, setCurrentWeatherButton;
     private Button themeCreamButton, themeBlueButton, themePeachButton, themeNightButton, themeMintButton;
     private Button drawerConnectionButton, drawerPermissionButton, drawerControlTestButton, drawerKnownAppsButton, drawerHomeModeButton, drawerGateAddButton, drawerReminderButton, drawerCycleButton, drawerDebugButton, drawerLifeDetailsButton, drawerAppGateButton, drawerWeatherButton, drawerVersionButton, checkUpdateButton, downloadUpdateButton;
+    private Button drawerGuidianButton, testGuidianButton, drawerGuidianSettingsButton, saveGuidianSettingsButton, guidianThemeDuskButton, guidianThemeCloudButton, guidianThemeBerryButton;
     private CheckBox remindersEnabled, batteryRuleEnabled, screenRuleEnabled, waterRuleEnabled, restRuleEnabled, cycleEnabled, foregroundPopupEnabled, homeModeEnabled, homeModeForceEnabled, appGateEnabled;
+    private CheckBox guidianEnabled, guidianRemoteEnabled, guidianFullscreenEnabled, guidianQuietEnabled;
     private Button tabSettings, tabSee, tabControl, tabLife, tabGate, tabDebug;
     private View sectionSettings, sectionSee, sectionControl, sectionLife, sectionGate, sectionDebug;
     private View drawerConnection, drawerPermission, drawerControlTest, drawerKnownApps, drawerHomeMode, drawerGateAdd, drawerReminder, drawerCycle, drawerDebug, drawerAppGate, drawerWeather, drawerVersion;
+    private View drawerGuidian, drawerGuidianSettings;
     private EditText serverUrl, tokenInput, deviceInput, userNameInput, partnerNameInput, intervalInput, cityInput, weatherInput;
     private EditText weatherAliasInput, weatherCityInput, weatherNoteInput;
     private EditText batteryThresholdInput, screenThresholdInput, waterIntervalInput, restIntervalInput;
     private EditText lastPeriodStartInput, cycleLengthInput, periodLengthInput, cycleRemindBeforeInput;
     private EditText appAliasInput, appPackageInput, homeWatchPackagesInput, homeThresholdInput, homeCooldownInput, homeTargetInput, gateAliasInput, gatePackageInput;
+    private EditText guidianIntervalInput, guidianCooldownInput, guidianDailyMaxInput, guidianQuietStartInput, guidianQuietEndInput, guidianTargetPackageInput, guidianPromptInput, guidianReasonInput;
     private boolean serviceRunning = false;
     private String currentTab = "life";
     private boolean weatherFetching = false;
@@ -82,8 +87,8 @@ public class MainActivity extends Activity {
         boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
         loadSettings();
 
-        DebugState.append(this, "掌心窗 v0.3.4.6-public 回家目标统一与许可补充版已打开");
-        if (clearedLegacyServer) DebugState.append(this, "已保留服务器地址。v0.3.4.6 不再按域名名称拦截 Render 地址。");
+        DebugState.append(this, "掌心窗 v0.3.5.0-public 归电感官版已打开");
+        if (clearedLegacyServer) DebugState.append(this, "已保留服务器地址。v0.3.5.0 不再按域名名称拦截 Render 地址。");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
@@ -109,13 +114,19 @@ public class MainActivity extends Activity {
         if (setCurrentWeatherButton != null) setCurrentWeatherButton.setOnClickListener(v -> addWeatherLocation(true));
         if (checkUpdateButton != null) checkUpdateButton.setOnClickListener(v -> checkForUpdates(true));
         if (downloadUpdateButton != null) downloadUpdateButton.setOnClickListener(v -> downloadLatestApk());
+        if (testGuidianButton != null) testGuidianButton.setOnClickListener(v -> { saveSettings(); JSONObject r = GuidianState.showPrompt(this, true); Toast.makeText(this, r.optBoolean("ok", false) ? "已触发归电" : ("触发失败：" + r.optString("reason", r.optString("error", "unknown"))), Toast.LENGTH_SHORT).show(); updateUI(); });
+        if (saveGuidianSettingsButton != null) saveGuidianSettingsButton.setOnClickListener(v -> { saveSettings(); updateUI(); Toast.makeText(this, "已保存归电设置", Toast.LENGTH_SHORT).show(); });
         if (userNameInput != null) userNameInput.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) { saveSettings(); updateUI(); } });
         if (partnerNameInput != null) partnerNameInput.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) { saveSettings(); updateUI(); } });
         if (homeTargetInput != null) homeTargetInput.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) { saveSettings(); updateUI(); } });
+        if (guidianTargetPackageInput != null) guidianTargetPackageInput.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) { saveSettings(); updateUI(); } });
 
         bindThemeButton(themeCreamButton, "奶油绿"); bindThemeButton(themeBlueButton, "雾蓝白"); bindThemeButton(themePeachButton, "白桃粉"); bindThemeButton(themeNightButton, "夜航黑"); bindThemeButton(themeMintButton, "薄荷透明");
+        bindGuidianThemeButton(guidianThemeDuskButton, "暮夜蓝紫"); bindGuidianThemeButton(guidianThemeCloudButton, "云海青灰"); bindGuidianThemeButton(guidianThemeBerryButton, "落日莓雾");
 
         bindDrawer(drawerLifeDetailsButton, lifeStatusText, "展开详情");
+        bindDrawer(drawerGuidianButton, drawerGuidian, "归电");
+        bindDrawer(drawerGuidianSettingsButton, drawerGuidianSettings, "归电设置");
         bindDrawer(drawerAppGateButton, drawerAppGate, "应用门禁");
         bindDrawer(drawerWeatherButton, drawerWeather, "天气地区");
         bindDrawer(drawerConnectionButton, drawerConnection, "连接设置");
@@ -142,19 +153,24 @@ public class MainActivity extends Activity {
     private void bindViews() {
         headerTitle = findViewById(R.id.headerTitle); headerSubtitle = findViewById(R.id.headerSubtitle); statusText = findViewById(R.id.statusText); debugText = findViewById(R.id.debugText); lifeStatusText = findViewById(R.id.lifeStatusText); lifeSummaryText = findViewById(R.id.lifeSummaryText); knownAppsText = findViewById(R.id.knownAppsText); homeModeStatusText = findViewById(R.id.homeModeStatusText); gateStatusText = findViewById(R.id.gateStatusText);
         overviewBatteryText = findViewById(R.id.overviewBatteryText); overviewAppText = findViewById(R.id.overviewAppText); overviewScreenText = findViewById(R.id.overviewScreenText); overviewWeatherText = findViewById(R.id.overviewWeatherText); overviewAdviceText = findViewById(R.id.overviewAdviceText); overviewAdviceTitle = findViewById(R.id.overviewAdviceTitle); seeIntroText = findViewById(R.id.seeIntroText); recentScreenshotHint = findViewById(R.id.recentScreenshotHint); weatherLocationsText = findViewById(R.id.weatherLocationsText); themeText = findViewById(R.id.themeText); versionStatusText = findViewById(R.id.versionStatusText); updateChangelogText = findViewById(R.id.updateChangelogText);
+        guidianSummaryText = findViewById(R.id.guidianSummaryText); guidianDetailText = findViewById(R.id.guidianDetailText); guidianSettingsStatusText = findViewById(R.id.guidianSettingsStatusText);
         toggleButton = findViewById(R.id.toggleButton); accessibilityButton = findViewById(R.id.accessibilityButton); usageAccessButton = findViewById(R.id.usageAccessButton); testButton = findViewById(R.id.testButton); openXhsButton = findViewById(R.id.openXhsButton); openChatGptButton = findViewById(R.id.openChatGptButton); homeButton = findViewById(R.id.homeButton); backButton = findViewById(R.id.backButton); recentsButton = findViewById(R.id.recentsButton); alarmTestButton = findViewById(R.id.alarmTestButton); notifyTestButton = findViewById(R.id.notifyTestButton); refreshLifeButton = findViewById(R.id.refreshLifeButton);
         addPackageButton = findViewById(R.id.addPackageButton); testPackageButton = findViewById(R.id.testPackageButton); sequenceTestButton = findViewById(R.id.sequenceTestButton); refreshGateButton = findViewById(R.id.refreshGateButton); addGateAppButton = findViewById(R.id.addGateAppButton); addWeatherLocationButton = findViewById(R.id.addWeatherLocationButton); setCurrentWeatherButton = findViewById(R.id.setCurrentWeatherButton);
         themeCreamButton = findViewById(R.id.themeCreamButton); themeBlueButton = findViewById(R.id.themeBlueButton); themePeachButton = findViewById(R.id.themePeachButton); themeNightButton = findViewById(R.id.themeNightButton); themeMintButton = findViewById(R.id.themeMintButton);
         drawerConnectionButton = findViewById(R.id.drawerConnectionButton); drawerPermissionButton = findViewById(R.id.drawerPermissionButton); drawerControlTestButton = findViewById(R.id.drawerControlTestButton); drawerKnownAppsButton = findViewById(R.id.drawerKnownAppsButton); drawerHomeModeButton = findViewById(R.id.drawerHomeModeButton); drawerGateAddButton = findViewById(R.id.drawerGateAddButton); drawerReminderButton = findViewById(R.id.drawerReminderButton); drawerCycleButton = findViewById(R.id.drawerCycleButton); drawerDebugButton = findViewById(R.id.drawerDebugButton); drawerLifeDetailsButton = findViewById(R.id.drawerLifeDetailsButton); drawerAppGateButton = findViewById(R.id.drawerAppGateButton); drawerWeatherButton = findViewById(R.id.drawerWeatherButton); drawerVersionButton = findViewById(R.id.drawerVersionButton); checkUpdateButton = findViewById(R.id.checkUpdateButton); downloadUpdateButton = findViewById(R.id.downloadUpdateButton);
+        drawerGuidianButton = findViewById(R.id.drawerGuidianButton); testGuidianButton = findViewById(R.id.testGuidianButton); drawerGuidianSettingsButton = findViewById(R.id.drawerGuidianSettingsButton); saveGuidianSettingsButton = findViewById(R.id.saveGuidianSettingsButton); guidianThemeDuskButton = findViewById(R.id.guidianThemeDuskButton); guidianThemeCloudButton = findViewById(R.id.guidianThemeCloudButton); guidianThemeBerryButton = findViewById(R.id.guidianThemeBerryButton);
         remindersEnabled = findViewById(R.id.remindersEnabled); batteryRuleEnabled = findViewById(R.id.batteryRuleEnabled); screenRuleEnabled = findViewById(R.id.screenRuleEnabled); waterRuleEnabled = findViewById(R.id.waterRuleEnabled); restRuleEnabled = findViewById(R.id.restRuleEnabled); cycleEnabled = findViewById(R.id.cycleEnabled); foregroundPopupEnabled = findViewById(R.id.foregroundPopupEnabled); homeModeEnabled = findViewById(R.id.homeModeEnabled); homeModeForceEnabled = findViewById(R.id.homeModeForceEnabled); appGateEnabled = findViewById(R.id.appGateEnabled);
+        guidianEnabled = findViewById(R.id.guidianEnabled); guidianRemoteEnabled = findViewById(R.id.guidianRemoteEnabled); guidianFullscreenEnabled = findViewById(R.id.guidianFullscreenEnabled); guidianQuietEnabled = findViewById(R.id.guidianQuietEnabled);
         tabSettings = findViewById(R.id.tabSettings); tabSee = findViewById(R.id.tabSee); tabControl = findViewById(R.id.tabControl); tabLife = findViewById(R.id.tabLife); tabGate = findViewById(R.id.tabGate); tabDebug = findViewById(R.id.tabDebug);
         sectionSettings = findViewById(R.id.sectionSettings); sectionSee = findViewById(R.id.sectionSee); sectionControl = findViewById(R.id.sectionControl); sectionLife = findViewById(R.id.sectionLife); sectionGate = findViewById(R.id.sectionGate); sectionDebug = findViewById(R.id.sectionDebug);
         drawerConnection = findViewById(R.id.drawerConnection); drawerPermission = findViewById(R.id.drawerPermission); drawerControlTest = findViewById(R.id.drawerControlTest); drawerKnownApps = findViewById(R.id.drawerKnownApps); drawerHomeMode = findViewById(R.id.drawerHomeMode); drawerGateAdd = findViewById(R.id.drawerGateAdd); drawerReminder = findViewById(R.id.drawerReminder); drawerCycle = findViewById(R.id.drawerCycle); drawerDebug = findViewById(R.id.drawerDebug); drawerAppGate = findViewById(R.id.drawerAppGate); drawerWeather = findViewById(R.id.drawerWeather); drawerVersion = findViewById(R.id.drawerVersion);
+        drawerGuidian = findViewById(R.id.drawerGuidian); drawerGuidianSettings = findViewById(R.id.drawerGuidianSettings);
         serverUrl = findViewById(R.id.serverUrl); tokenInput = findViewById(R.id.tokenInput); deviceInput = findViewById(R.id.deviceInput); userNameInput = findViewById(R.id.userNameInput); partnerNameInput = findViewById(R.id.partnerNameInput); intervalInput = findViewById(R.id.intervalInput); cityInput = findViewById(R.id.cityInput); weatherInput = findViewById(R.id.weatherInput);
         weatherAliasInput = findViewById(R.id.weatherAliasInput); weatherCityInput = findViewById(R.id.weatherCityInput); weatherNoteInput = findViewById(R.id.weatherNoteInput);
         batteryThresholdInput = findViewById(R.id.batteryThresholdInput); screenThresholdInput = findViewById(R.id.screenThresholdInput); waterIntervalInput = findViewById(R.id.waterIntervalInput); restIntervalInput = findViewById(R.id.restIntervalInput);
         lastPeriodStartInput = findViewById(R.id.lastPeriodStartInput); cycleLengthInput = findViewById(R.id.cycleLengthInput); periodLengthInput = findViewById(R.id.periodLengthInput); cycleRemindBeforeInput = findViewById(R.id.cycleRemindBeforeInput);
         appAliasInput = findViewById(R.id.appAliasInput); appPackageInput = findViewById(R.id.appPackageInput); homeWatchPackagesInput = findViewById(R.id.homeWatchPackagesInput); homeThresholdInput = findViewById(R.id.homeThresholdInput); homeCooldownInput = findViewById(R.id.homeCooldownInput); homeTargetInput = findViewById(R.id.homeTargetInput); gateAliasInput = findViewById(R.id.gateAliasInput); gatePackageInput = findViewById(R.id.gatePackageInput);
+        guidianIntervalInput = findViewById(R.id.guidianIntervalInput); guidianCooldownInput = findViewById(R.id.guidianCooldownInput); guidianDailyMaxInput = findViewById(R.id.guidianDailyMaxInput); guidianQuietStartInput = findViewById(R.id.guidianQuietStartInput); guidianQuietEndInput = findViewById(R.id.guidianQuietEndInput); guidianTargetPackageInput = findViewById(R.id.guidianTargetPackageInput); guidianPromptInput = findViewById(R.id.guidianPromptInput); guidianReasonInput = findViewById(R.id.guidianReasonInput);
     }
 
     private void loadSettings() {
@@ -192,6 +208,18 @@ public class MainActivity extends Activity {
         if (homeCooldownInput != null) homeCooldownInput.setText(String.valueOf(prefs.getInt(AppPrefs.KEY_HOME_COOLDOWN_MIN, 5)));
         if (homeTargetInput != null) homeTargetInput.setText(AppPrefs.homeTargetPackage(this));
         if (appGateEnabled != null) appGateEnabled.setChecked(prefs.getBoolean(AppGate.KEY_ENABLED, true));
+        if (guidianEnabled != null) guidianEnabled.setChecked(prefs.getBoolean(GuidianState.KEY_ENABLED, true));
+        if (guidianRemoteEnabled != null) guidianRemoteEnabled.setChecked(prefs.getBoolean(GuidianState.KEY_ALLOW_REMOTE, true));
+        if (guidianFullscreenEnabled != null) guidianFullscreenEnabled.setChecked(prefs.getBoolean(GuidianState.KEY_FULLSCREEN, true));
+        if (guidianQuietEnabled != null) guidianQuietEnabled.setChecked(prefs.getBoolean(GuidianState.KEY_QUIET_ENABLED, true));
+        if (guidianIntervalInput != null) guidianIntervalInput.setText(String.valueOf(prefs.getInt(GuidianState.KEY_INTERVAL_MIN, 180)));
+        if (guidianCooldownInput != null) guidianCooldownInput.setText(String.valueOf(prefs.getInt(GuidianState.KEY_COOLDOWN_MIN, 60)));
+        if (guidianDailyMaxInput != null) guidianDailyMaxInput.setText(String.valueOf(prefs.getInt(GuidianState.KEY_DAILY_MAX, 3)));
+        if (guidianQuietStartInput != null) guidianQuietStartInput.setText(prefs.getString(GuidianState.KEY_QUIET_START, "23:30"));
+        if (guidianQuietEndInput != null) guidianQuietEndInput.setText(prefs.getString(GuidianState.KEY_QUIET_END, "08:00"));
+        if (guidianTargetPackageInput != null) guidianTargetPackageInput.setText(prefs.getString(GuidianState.KEY_TARGET_PACKAGE, AppPrefs.homeTargetPackage(this)));
+        if (guidianPromptInput != null) guidianPromptInput.setText(prefs.getString(GuidianState.KEY_PROMPTS, GuidianState.defaultPrompts()));
+        if (guidianReasonInput != null) guidianReasonInput.setText(prefs.getString(GuidianState.KEY_REASONS, GuidianState.defaultReasons()));
     }
 
     private void saveSettings() {
@@ -226,6 +254,18 @@ public class MainActivity extends Activity {
         if (homeCooldownInput != null) e.putInt(AppPrefs.KEY_HOME_COOLDOWN_MIN, parseInt(homeCooldownInput.getText().toString().trim(), 5, 1, 240));
         if (homeTargetInput != null) e.putString(AppPrefs.KEY_HOME_TARGET_PACKAGE, AppPrefs.saveHomeTarget(this, homeTargetInput.getText().toString().trim()));
         if (appGateEnabled != null) e.putBoolean(AppGate.KEY_ENABLED, appGateEnabled.isChecked());
+        if (guidianEnabled != null) e.putBoolean(GuidianState.KEY_ENABLED, guidianEnabled.isChecked());
+        if (guidianRemoteEnabled != null) e.putBoolean(GuidianState.KEY_ALLOW_REMOTE, guidianRemoteEnabled.isChecked());
+        if (guidianFullscreenEnabled != null) e.putBoolean(GuidianState.KEY_FULLSCREEN, guidianFullscreenEnabled.isChecked());
+        if (guidianQuietEnabled != null) e.putBoolean(GuidianState.KEY_QUIET_ENABLED, guidianQuietEnabled.isChecked());
+        if (guidianIntervalInput != null) e.putInt(GuidianState.KEY_INTERVAL_MIN, parseInt(guidianIntervalInput.getText().toString().trim(), 180, 15, 10080));
+        if (guidianCooldownInput != null) e.putInt(GuidianState.KEY_COOLDOWN_MIN, parseInt(guidianCooldownInput.getText().toString().trim(), 60, 0, 10080));
+        if (guidianDailyMaxInput != null) e.putInt(GuidianState.KEY_DAILY_MAX, parseInt(guidianDailyMaxInput.getText().toString().trim(), 3, 0, 99));
+        if (guidianQuietStartInput != null) e.putString(GuidianState.KEY_QUIET_START, guidianQuietStartInput.getText().toString().trim().isEmpty() ? "23:30" : guidianQuietStartInput.getText().toString().trim());
+        if (guidianQuietEndInput != null) e.putString(GuidianState.KEY_QUIET_END, guidianQuietEndInput.getText().toString().trim().isEmpty() ? "08:00" : guidianQuietEndInput.getText().toString().trim());
+        if (guidianTargetPackageInput != null) e.putString(GuidianState.KEY_TARGET_PACKAGE, AppPrefs.saveHomeTarget(this, guidianTargetPackageInput.getText().toString().trim()));
+        if (guidianPromptInput != null) e.putString(GuidianState.KEY_PROMPTS, guidianPromptInput.getText().toString());
+        if (guidianReasonInput != null) e.putString(GuidianState.KEY_REASONS, guidianReasonInput.getText().toString());
         e.apply();
     }
 
@@ -239,8 +279,8 @@ public class MainActivity extends Activity {
     }
     private void updateHeader(String tab) {
         if (headerTitle == null || headerSubtitle == null) return;
-        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.4.6 · 回家目标统一与许可补充。"); }
-        else if ("see".equals(tab)) { headerTitle.setText("看见"); headerSubtitle.setText("把屏幕递给" + AppPrefs.partnerName(this) + "，看见就收在这里。"); }
+        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.5.0 · 新增归电感官与远程设置。"); }
+        else if ("see".equals(tab)) { headerTitle.setText("感官"); headerSubtitle.setText("看见、归电和轻量状态，都收在这里。"); }
         else if ("gate".equals(tab)) { headerTitle.setText("守护"); headerSubtitle.setText("门禁、天气和提醒，平时收进抽屉。"); }
         else { headerTitle.setText("设置"); headerSubtitle.setText("主题、权限和调试都放这里。"); }
     }
@@ -266,6 +306,15 @@ public class MainActivity extends Activity {
             applyVisualTheme();
         });
     }
+    private void bindGuidianThemeButton(Button b, String theme) {
+        if (b == null) return;
+        b.setOnClickListener(v -> {
+            AppPrefs.get(this).edit().putString(GuidianState.KEY_THEME, theme).apply();
+            updateUI();
+            Toast.makeText(this, "归电主题：" + theme, Toast.LENGTH_SHORT).show();
+        });
+    }
+
     private void bindThemeButton(Button b, String name) {
         if (b == null) return;
         b.setOnClickListener(v -> {
@@ -288,7 +337,7 @@ public class MainActivity extends Activity {
         setTabSelected(tabSettings, "settings".equals(currentTab));
         styleThemeButton(themeCreamButton, t, "奶油绿"); styleThemeButton(themeBlueButton, t, "雾蓝白"); styleThemeButton(themePeachButton, t, "白桃粉"); styleThemeButton(themeNightButton, t, "夜航黑"); styleThemeButton(themeMintButton, t, "薄荷透明");
         if (tabLife != null && tabLife.getParent() instanceof View) { ((View) tabLife.getParent()).setBackground(t.card(24, 0.35f)); ((View) tabLife.getParent()).setElevation(dp(4)); }
-        styleDrawerButton(drawerLifeDetailsButton, t); styleDrawerButton(drawerAppGateButton, t); styleDrawerButton(drawerWeatherButton, t); styleDrawerButton(drawerConnectionButton, t); styleDrawerButton(drawerPermissionButton, t); styleDrawerButton(drawerControlTestButton, t); styleDrawerButton(drawerKnownAppsButton, t); styleDrawerButton(drawerHomeModeButton, t); styleDrawerButton(drawerGateAddButton, t); styleDrawerButton(drawerReminderButton, t); styleDrawerButton(drawerCycleButton, t); styleDrawerButton(drawerDebugButton, t);
+        styleDrawerButton(drawerLifeDetailsButton, t); styleDrawerButton(drawerGuidianButton, t); styleDrawerButton(drawerGuidianSettingsButton, t); styleDrawerButton(drawerAppGateButton, t); styleDrawerButton(drawerWeatherButton, t); styleDrawerButton(drawerConnectionButton, t); styleDrawerButton(drawerPermissionButton, t); styleDrawerButton(drawerControlTestButton, t); styleDrawerButton(drawerKnownAppsButton, t); styleDrawerButton(drawerHomeModeButton, t); styleDrawerButton(drawerGateAddButton, t); styleDrawerButton(drawerReminderButton, t); styleDrawerButton(drawerCycleButton, t); styleDrawerButton(drawerDebugButton, t);
         if (statusText != null) { statusText.setBackground(t.soft(22)); statusText.setPadding(dp(14), dp(10), dp(14), dp(10)); }
         if (themeText != null) themeText.setTextColor(t.subtext);
     }
@@ -377,7 +426,7 @@ public class MainActivity extends Activity {
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：v0.3.4.6 回家目标统一与许可补充"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：v0.3.5.0 归电感官版"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }
@@ -585,6 +634,11 @@ public class MainActivity extends Activity {
         if (homeModeStatusText != null) { saveSettings(); homeModeStatusText.setText(HomeMode.pretty(this)); }
         if (drawerAppGateButton != null && (drawerAppGate == null || drawerAppGate.getVisibility() != View.VISIBLE)) drawerAppGateButton.setText(AppGate.summaryLine(this) + "  ›");
         if (gateStatusText != null) gateStatusText.setText(AppGate.prettyClean(this));
+        if (drawerGuidianButton != null && (drawerGuidian == null || drawerGuidian.getVisibility() != View.VISIBLE)) drawerGuidianButton.setText(GuidianState.summaryText(this) + "  ›");
+        else if (drawerGuidianButton != null) drawerGuidianButton.setText("归电  ˄");
+        if (guidianSummaryText != null) guidianSummaryText.setText(GuidianState.summaryText(this));
+        if (guidianDetailText != null) guidianDetailText.setText(GuidianState.detailText(this));
+        if (guidianSettingsStatusText != null) guidianSettingsStatusText.setText("当前：" + AppPrefs.partnerName(this) + " · 目标 " + GuidianState.targetLabel(this) + " · 间隔 " + GuidianState.intervalMin(this) + " 分钟 · 冷却 " + GuidianState.cooldownMin(this) + " 分钟");
         if (debugText != null) debugText.setText(DebugState.get(this));
         if (themeText != null) themeText.setText("当前主题：" + AppPrefs.get(this).getString(AppPrefs.KEY_THEME, "奶油绿") + "\n点击后即时切换背景、卡片、按钮和底部导航。");
         updateVersionPanel();

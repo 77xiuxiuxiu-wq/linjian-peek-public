@@ -1,4 +1,4 @@
-# MCP 工具清单（v0.3.4-public）
+# MCP 工具清单（v0.3.5.0-public）
 
 掌心窗 MCP 服务会把手机端能力暴露给支持 MCP 的客户端。所有工具都需要你自己的 `LINJIAN_TOKEN`，并且手机端必须保持服务启动。
 
@@ -7,7 +7,8 @@
 - `peek_screen(wait_seconds)`：请求手机端截一张新截图，并等待上传后返回图片。
 - `latest_screen()`：不触发手机截图，直接读取服务器最近一张截图。
 - `linjian_status()`：检查 MCP 与后端连接状态、默认设备和最新截图信息。
-- `get_life_state(device_id)`：读取生活状态：电量、充电、网络、当前 App、今日屏幕时间、解锁次数、常用 App、当前天气地区、门禁状态、周期提醒等。
+- `get_life_state(device_id)`：读取生活状态：电量、充电、网络、当前 App、今日屏幕时间、解锁次数、常用 App、当前天气地区、门禁状态、周期提醒、归电状态等。
+- `get_senses_state(device_id)`：读取轻量感官聚合状态：生活状态 + 归电状态。不截图，不包含聆音、鲸鸣、声息。
 - `get_phone_state(device_id)`：读取更轻量的当前包名、当前 App、无障碍状态和屏幕文本。
 - `get_screen_nodes(device_id, wait_seconds)`：读取当前屏幕无障碍节点，包含文字、控件类型、可点击状态和坐标。
 
@@ -40,6 +41,13 @@
 - `draft_xhs_comment(text, device_id)`：尝试打开评论输入框并写入草稿，不发送。
 - `xhs_comment(text, mode, author_tag, device_id, wait_seconds)`：小红书评论助手。`manual` 只写草稿；`auto` 会追加署名并尝试发送，只应在你明确同意时使用。
 - `send_visible_comment_after_confirmation(device_id, wait_seconds)`：在你确认当前屏幕草稿无误后，点击发送按钮。
+
+## 归电
+
+- `get_guidian_state(device_id)`：读取归电状态和设置：上次回来、下次最早归电、今日次数、拒绝理由、目标 App、主题等。
+- `set_guidian_config(device_id, enabled, interval_minutes, cooldown_minutes, daily_max, quiet_start, quiet_end, target_app, ai_name, theme, prompts, quick_reasons)`：在用户授权时调整归电设置。
+- `trigger_guidian(device_id)`：立刻触发一次归电全屏页，用于测试。
+- `mark_guidian_returned(device_id, source)`：手动标记已经回到归电目标 App。
 
 ## 应用门禁
 

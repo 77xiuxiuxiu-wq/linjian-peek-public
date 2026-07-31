@@ -106,7 +106,7 @@ async function fetchLatestImage() {
 }
 
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.4.1-public" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.5.0-public" });
 
   server.tool(
     "peek_screen",
@@ -448,6 +448,62 @@ function makeServer() {
     app: z.string().default(""), package: z.string().default(""), passphrase: z.string(), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
   }, async ({ app = "", package: pkg = "", passphrase, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "set_emergency_passphrase", app, package: pkg, device_id, passphrase, emergency_passphrase: passphrase, emergencyPassphrase: passphrase, payload: { app, package: pkg, passphrase, emergency_passphrase: passphrase, emergencyPassphrase: passphrase } }, wait_seconds));
 
+
+  server.tool("get_senses_state", "读取掌心窗『感官』聚合状态：生活状态 + 归电状态。不截图，不包含私用聆音/鲸鸣/声息。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
+    const lifeRes = await linjianFetch(`/api/life_state?device_id=${encodeURIComponent(device_id)}`);
+    const life = await lifeRes.json();
+    const guidianRes = await linjianFetch(`/api/guidian_state?device_id=${encodeURIComponent(device_id)}`);
+    const guidian = await guidianRes.json();
+    return { content: [{ type: "text", text: JSON.stringify({ ok: true, device_id, life_state: life?.life_state || life?.state || life, guidian_state: guidian?.guidian_state || {} }, null, 2) }] };
+  });
+
+  server.tool("get_guidian_state", "读取掌心窗『归电』状态：上次回来、下次最早归电、今日次数、拒绝理由、主题和设置。不会截图。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
+    const res = await linjianFetch(`/api/guidian_state?device_id=${encodeURIComponent(device_id)}`);
+    const data = await res.json();
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  });
+
+  server.tool("trigger_guidian", "立刻触发一次掌心窗归电全屏页。只在用户明确要求测试归电时使用。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const result = await postCommand({ action: "trigger_guidian", device_id, payload: {} });
+    const id = result?.command?.id;
+    const observed = id ? await waitCommand(id, wait_seconds) : null;
+    return { content: [{ type: "text", text: JSON.stringify({ queued: result, observed_status: observed?.command || null }, null, 2) }] };
+  });
+
+  server.tool("mark_guidian_returned", "手动标记用户已经回到归电目标 App。一般不需要用；接受归电或打开目标 App 会自动记录。", { source: z.string().default("mcp"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ source = "mcp", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const result = await postCommand({ action: "mark_guidian_returned", device_id, source, payload: { source } });
+    const id = result?.command?.id;
+    const observed = id ? await waitCommand(id, wait_seconds) : null;
+    return { content: [{ type: "text", text: JSON.stringify({ queued: result, observed_status: observed?.command || null }, null, 2) }] };
+  });
+
+  server.tool("set_guidian_config", "在用户已授权时调整归电设置。可改开关、间隔、冷却、每日上限、安静时段、目标 App、AI 名字、主题和文案池。", {
+    device_id: z.string().default(DEFAULT_DEVICE),
+    enabled: z.boolean().optional(),
+    allow_remote: z.boolean().optional(),
+    fullscreen: z.boolean().optional(),
+    interval_minutes: z.number().int().min(15).max(10080).optional(),
+    cooldown_minutes: z.number().int().min(0).max(10080).optional(),
+    daily_max: z.number().int().min(0).max(99).optional(),
+    quiet_enabled: z.boolean().optional(),
+    quiet_start: z.string().optional(),
+    quiet_end: z.string().optional(),
+    target_package: z.string().optional(),
+    target_app: z.string().optional(),
+    ai_name: z.string().optional(),
+    partner_name: z.string().optional(),
+    theme: z.string().optional(),
+    prompts: z.string().optional(),
+    quick_reasons: z.string().optional(),
+    wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async (args) => {
+    const { device_id = DEFAULT_DEVICE, wait_seconds = 8, ...payload } = args;
+    const result = await postCommand({ action: "set_guidian_config", device_id, payload, ...payload });
+    const id = result?.command?.id;
+    const observed = id ? await waitCommand(id, wait_seconds) : null;
+    return { content: [{ type: "text", text: JSON.stringify({ queued: result, observed_status: observed?.command || null }, null, 2) }] };
+  });
+
   server.tool("get_unlock_requests", "应用门禁：查看手机锁定页提交到后端的解锁申请。", {}, async () => {
     const res = await linjianFetch("/api/appgate/unlock_requests");
     const data = await res.json();
@@ -460,7 +516,7 @@ function makeServer() {
 const app = express();
 app.use(express.json({ limit: "32mb" }));
 app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP is running. Use /mcp for Streamable HTTP, or /sse for SSE."));
-app.get("/health", (_req, res) => res.json({ ok: true, service: "linjian-unified-mcp", version: "0.3.4.1", has_url: Boolean(LINJIAN_URL), has_token: Boolean(LINJIAN_TOKEN) }));
+app.get("/health", (_req, res) => res.json({ ok: true, service: "linjian-unified-mcp", version: "0.3.5.0", has_url: Boolean(LINJIAN_URL), has_token: Boolean(LINJIAN_TOKEN) }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }
   catch (err) { console.error(err); if (!res.headersSent) res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: String(err?.message || err) }, id: null }); }

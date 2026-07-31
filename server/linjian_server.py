@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""掌心窗 v0.3.4.6 unified server.
+"""掌心窗 v0.3.5.0 unified server.
 
 零依赖标准库版，负责：
 1. 给手机端下发 peek / open_app / back / home / recents / tap / swipe / set_alarm / send_notification 命令；
@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlparse
 DEFAULT_PORT = 8513
 DEFAULT_KEEP = 3
 MAX_UPLOAD_BYTES = 24 * 1024 * 1024
-VERSION = "0.3.4.6-public"
+VERSION = "0.3.5.0-public"
 DEFAULT_DEVICE = os.environ.get("LINJIAN_DEFAULT_DEVICE", "android-phone")
 
 ERR_BAD_TOKEN = "LINJIAN_ERR_BAD_TOKEN"
@@ -45,7 +45,7 @@ KNOWN_APPS = {
     "Speedcat": "", "speedcat": "",
 }
 SENSITIVE_PACKAGES = {"com.eg.android.AlipayGphone", "com.tencent.mm.plugin.wallet"}
-ALLOWED_ACTIONS = {"noop", "peek", "open_app", "home", "back", "recents", "tap", "swipe", "set_alarm", "send_notification", "run_sequence", "save_known_app", "get_screen_nodes", "tap_text", "input_text", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request", "get_lock_state", "set_emergency_passphrase", "add_locked_app", "remove_locked_app", "list_lockable_apps"}
+ALLOWED_ACTIONS = {"noop", "peek", "open_app", "home", "back", "recents", "tap", "swipe", "set_alarm", "send_notification", "run_sequence", "save_known_app", "get_screen_nodes", "tap_text", "input_text", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request", "get_lock_state", "set_emergency_passphrase", "add_locked_app", "remove_locked_app", "list_lockable_apps", "get_guidian_state", "set_guidian_config", "trigger_guidian", "mark_guidian_returned"}
 
 
 def load_dotenv(path: Path) -> None:
@@ -76,7 +76,7 @@ def load_update_info() -> dict:
         "changelog": [
             "修复部分 vivo / OriginOS 机型首次打开只显示左上角的问题",
             "优化全屏铺满与启动重测量",
-            "新增回家目标统一、称呼同步和许可说明"
+            "新增归电感官卡片、归电设置与 MCP 远程配置"
         ]
     }
 
@@ -178,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         qs = parse_qs(parsed.query)
         if path in ("/", "/health"):
-            self._json(200, {"ok": True, "service": "linjian-unified", "name": "掌心窗", "version": VERSION, "tools": sorted(ALLOWED_ACTIONS)})
+            self._json(200, {"ok": True, "service": "linjian-unified", "name": "掌心窗", "version": VERSION, "tools": sorted(ALLOWED_ACTIONS), "guidian": True})
             return
         if path in ("/api/update.json", "/update.json"):
             payload = load_update_info()
@@ -213,6 +213,12 @@ class Handler(BaseHTTPRequestHandler):
             device_id = qs.get("device_id", [DEFAULT_DEVICE])[0] or DEFAULT_DEVICE
             state = self.state.device_states.get(device_id)
             self._json(200, {"ok": True, "device_id": device_id, "state": state, "life_state": state}); return
+        if path == "/api/guidian_state":
+            if not self._require_token(): return
+            device_id = qs.get("device_id", [DEFAULT_DEVICE])[0] or DEFAULT_DEVICE
+            st = self.state.device_states.get(device_id) or {}
+            guidian = st.get("guidian_state") or {}
+            self._json(200, {"ok": True, "device_id": device_id, "guidian_state": guidian}); return
         if path == "/api/command/status":
             if not self._require_token(): return
             cid = qs.get("id", [""])[0]

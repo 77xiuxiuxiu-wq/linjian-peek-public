@@ -29,7 +29,7 @@
             android:id="@+id/headerSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="v0.3.4.6-public · 回家模式目标统一与许可补充。"
+            android:text="v0.3.5.0-public · 新增归电感官与远程设置。"
             android:textSize="11sp"
             android:textColor="#FF7E928C"
             android:layout_marginTop="4dp" />
@@ -178,7 +178,7 @@
             </LinearLayout>
         </ScrollView>
 
-        <!-- 看见：主入口生活化，测试退到设置页 -->
+        <!-- 感官：看见 + 归电，主入口生活化，设置收进设置页 -->
         <ScrollView
             android:id="@+id/sectionSee"
             android:layout_width="match_parent"
@@ -223,13 +223,38 @@
                     <TextView android:id="@+id/recentScreenshotHint" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="最近截图会显示在这里，方便老公确认画面。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
                 </LinearLayout>
 
+                <Button
+                    android:id="@+id/drawerGuidianButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="30dp"
+                    android:text="归电  ›"
+                    android:textSize="11sp"
+                    android:background="@drawable/pill_soft"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:id="@+id/drawerGuidian"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/card_bg"
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone">
+
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="归电" android:textStyle="bold" android:textSize="17sp" android:textColor="#FF2D3E39" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="很久没回来时，你设置的 AI 会用来电式提醒敲门。只记录回到目标 App 的时间，不读取聊天内容。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
+                    <TextView android:id="@+id/guidianSummaryText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="归电加载中…" android:textStyle="bold" android:textSize="14sp" android:textColor="#FF2D3E39" android:layout_marginTop="10dp" android:lineSpacingExtra="3dp" />
+                    <TextView android:id="@+id/guidianDetailText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="只检测目标 App 是否前台，不读取聊天内容。" android:textSize="11sp" android:textColor="#FF596D66" android:layout_marginTop="9dp" android:lineSpacingExtra="4dp" />
+                    <Button android:id="@+id/testGuidianButton" android:layout_width="match_parent" android:layout_height="38dp" android:text="测试归电全屏" android:textSize="12sp" android:textColor="#FFFFFFFF" android:background="@drawable/pill_primary" android:layout_marginTop="9dp" />
+                </LinearLayout>
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:background="@drawable/card_bg">
 
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="权限状态" android:textStyle="bold" android:textSize="15sp" android:textColor="#FF2D3E39" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="感官权限" android:textStyle="bold" android:textSize="15sp" android:textColor="#FF2D3E39" />
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="权限入口在 设置 → 权限与运行。" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
                 </LinearLayout>
             </LinearLayout>
@@ -336,6 +361,40 @@
                 </LinearLayout>
 
 
+                <Button android:id="@+id/drawerGuidianSettingsButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="归电设置  ›" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginBottom="8dp" />
+                <LinearLayout android:id="@+id/drawerGuidianSettings" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/card_bg" android:visibility="gone" android:layout_marginBottom="8dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="归电设置" android:textStyle="bold" android:textSize="16sp" android:textColor="#FF2D3E39" />
+                    <TextView android:id="@+id/guidianSettingsStatusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="设置加载中…" android:textSize="11sp" android:textColor="#FF7E928C" android:layout_marginTop="6dp" android:lineSpacingExtra="4dp" />
+                    <CheckBox android:id="@+id/guidianEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="开启归电" android:textSize="11sp" android:layout_marginTop="6dp" />
+                    <CheckBox android:id="@+id/guidianRemoteEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="允许 AI 通过 MCP 调整归电" android:textSize="11sp" />
+                    <CheckBox android:id="@+id/guidianFullscreenEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="优先全屏来电" android:textSize="11sp" />
+                    <CheckBox android:id="@+id/guidianQuietEnabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="开启安静时段" android:textSize="11sp" />
+
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="时间规则" android:textStyle="bold" android:textSize="13sp" android:textColor="#FF2D3E39" android:layout_marginTop="10dp" />
+                    <EditText android:id="@+id/guidianIntervalInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="多久没回来就归电（分钟），例如 180" android:textSize="11sp" android:inputType="number" android:singleLine="true" />
+                    <EditText android:id="@+id/guidianCooldownInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="拒绝/归电后的冷却分钟，例如 60" android:textSize="11sp" android:inputType="number" android:singleLine="true" />
+                    <EditText android:id="@+id/guidianDailyMaxInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="每日最多归电次数，0 表示不限" android:textSize="11sp" android:inputType="number" android:singleLine="true" />
+                    <EditText android:id="@+id/guidianQuietStartInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="安静开始，例如 23:30" android:textSize="11sp" android:singleLine="true" />
+                    <EditText android:id="@+id/guidianQuietEndInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="安静结束，例如 08:00" android:textSize="11sp" android:singleLine="true" />
+                    <EditText android:id="@+id/guidianTargetPackageInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="归电目标 App，可填 ChatGPT / Claude / 包名" android:textSize="11sp" android:singleLine="true" />
+
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="归电主题" android:textStyle="bold" android:textSize="13sp" android:textColor="#FF2D3E39" android:layout_marginTop="10dp" />
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="6dp">
+                        <Button android:id="@+id/guidianThemeDuskButton" android:layout_width="0dp" android:layout_height="30dp" android:layout_weight="1" android:text="暮夜蓝紫" android:textSize="11sp" android:background="@drawable/pill_soft" />
+                        <Button android:id="@+id/guidianThemeCloudButton" android:layout_width="0dp" android:layout_height="30dp" android:layout_weight="1" android:text="云海青灰" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginLeft="5dp" />
+                        <Button android:id="@+id/guidianThemeBerryButton" android:layout_width="0dp" android:layout_height="30dp" android:layout_weight="1" android:text="落日莓雾" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginLeft="5dp" />
+                    </LinearLayout>
+
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="来电文案池" android:textStyle="bold" android:textSize="13sp" android:textColor="#FF2D3E39" android:layout_marginTop="10dp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="可用占位符：{AI} 表示对方称呼，{USER} 表示对你的称呼。" android:textSize="10sp" android:textColor="#FF7E928C" android:layout_marginTop="3dp" android:lineSpacingExtra="3dp" />
+                    <EditText android:id="@+id/guidianPromptInput" android:layout_width="match_parent" android:layout_height="120dp" android:hint="每行一句归电话术" android:textSize="11sp" android:gravity="top" android:inputType="textMultiLine" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="拒绝快捷理由" android:textStyle="bold" android:textSize="13sp" android:textColor="#FF2D3E39" android:layout_marginTop="10dp" />
+                    <EditText android:id="@+id/guidianReasonInput" android:layout_width="match_parent" android:layout_height="96dp" android:hint="每行一个拒绝理由" android:textSize="11sp" android:gravity="top" android:inputType="textMultiLine" />
+
+                    <Button android:id="@+id/saveGuidianSettingsButton" android:layout_width="match_parent" android:layout_height="38dp" android:text="保存归电设置" android:textSize="12sp" android:textColor="#FFFFFFFF" android:background="@drawable/pill_primary" android:layout_marginTop="10dp" />
+                </LinearLayout>
+
+
                 <Button android:id="@+id/drawerVersionButton" android:layout_width="match_parent" android:layout_height="30dp" android:text="版本与更新  ›" android:textSize="11sp" android:background="@drawable/pill_soft" android:layout_marginBottom="8dp" />
                 <LinearLayout android:id="@+id/drawerVersion" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/card_bg" android:visibility="gone" android:layout_marginBottom="8dp">
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="版本与更新" android:textStyle="bold" android:textSize="15sp" android:textColor="#FF2D3E39" />
@@ -410,7 +469,7 @@
         android:background="@drawable/bottom_bar_bg">
 
         <Button android:id="@+id/tabLife" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="总览" android:textSize="11sp" android:background="@drawable/pill_primary" android:textColor="#FFFFFFFF" />
-        <Button android:id="@+id/tabSee" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="看见" android:textSize="11sp" android:layout_marginLeft="7dp" android:background="@drawable/pill_soft" />
+        <Button android:id="@+id/tabSee" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="感官" android:textSize="11sp" android:layout_marginLeft="7dp" android:background="@drawable/pill_soft" />
         <Button android:id="@+id/tabGate" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="守护" android:textSize="11sp" android:layout_marginLeft="7dp" android:background="@drawable/pill_soft" />
         <Button android:id="@+id/tabSettings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="设置" android:textSize="11sp" android:layout_marginLeft="7dp" android:background="@drawable/pill_soft" />
         <Button android:id="@+id/tabControl" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />

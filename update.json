@@ -1,14 +1,14 @@
 {
-  "latest_version_name": "0.3.4.6",
-  "latest_version_code": 30406,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.4.6/Zhangxinchuang-public-v0.3.4.6.apk",
+  "latest_version_name": "0.3.5.0",
+  "latest_version_code": 30500,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.5.0/Zhangxinchuang-public-v0.3.5.0.apk",
   "sha256": "",
   "required": false,
   "changelog": [
-    "修复回家模式目标 App 与提醒按钮不一致的问题：目标可填 ChatGPT / Claude / Gemini / 自定义包名",
-    "通知详情页的“回到对方这里”按钮会统一打开回家模式目标 App，不再写死 ChatGPT",
-    "设置里的对方称呼会同步到老公提醒、看一眼、回家模式、门禁页等文案；默认仍保留“宝宝 / 老公”的关系感",
-    "补充项目许可策略：允许个人学习、自用部署和本地修改；未经授权不得改名分发、发布衍生 APK、商业售卖或移除原作者说明",
-    "版本与更新面板新增许可摘要，方便用户查看当前授权边界"
+    "新增「归电」功能：很久没有回到目标 App 时，可用来电式全屏页提醒回来。",
+    "感官页新增归电状态卡：显示上次回来、下次最早归电、今日次数、最近拒绝理由与自动检查结果。",
+    "设置页新增归电设置：可改开关、间隔、冷却、每日上限、安静时段、目标 App、主题、文案池和拒绝理由。",
+    "归电对象会读取设置里的对方/AI 称呼；目标 App 可填 ChatGPT、Claude、Gemini、应用昵称或包名。",
+    "MCP 新增 get_guidian_state、set_guidian_config、trigger_guidian、mark_guidian_returned，并保留公开版不合并聆音、鲸鸣、声息。"
   ]
 }

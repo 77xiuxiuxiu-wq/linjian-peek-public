@@ -1,4 +1,4 @@
-# 掌心窗公开版 v0.3.4.6-home-target-license
+# 掌心窗公开版 v0.3.5.0-guidian
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/linzhi-524/linjian-peek-public)
 
@@ -10,6 +10,18 @@
 
 > 重要提醒：截图、读屏、控制手机、通知、闹钟、应用门禁、自动打开目标 App 都是敏感能力。只在本人设备、本人服务器、本人明确授权的场景使用。不要把 Token 发给别人，也不要接入不可信 MCP 客户端。
 
+
+## v0.3.5.0 归电感官版
+
+这一版把私用版里的「归电」搬到公开版，但不合并聆音、鲸鸣、声息等私用功能。
+
+- 「感官」页新增归电状态卡：显示上次回来、下次最早归电、今日次数、最近拒绝理由和自动检查结果。
+- 「设置」页新增归电设置：可改归电开关、远程调整许可、全屏来电、提醒间隔、冷却时间、每日上限、安静时段、目标 App、主题、来电文案池和拒绝理由。
+- 归电对象会读取设置里的“对方称呼 / AI 名字”；文案池支持 `{AI}` 和 `{USER}` 占位符。
+- 目标 App 可填 `ChatGPT`、`Claude`、`Gemini`、已保存的应用昵称，或直接填写 Android 包名。接受归电后会跳转到这个目标 App。
+- MCP 新增 `get_guidian_state`、`set_guidian_config`、`trigger_guidian`、`mark_guidian_returned` 和轻量 `get_senses_state`。
+
+> 归电只记录连接/回来时间、当前前台包名和拒绝理由，不读取聊天内容。
 
 ## v0.3.4.6 回家目标统一与许可补充
 
