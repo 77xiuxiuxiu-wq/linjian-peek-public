@@ -1,14 +1,13 @@
 {
-  "latest_version_name": "0.3.5.0",
-  "latest_version_code": 30500,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.5.0/Zhangxinchuang-public-v0.3.5.0.apk",
+  "latest_version_name": "0.3.5.1",
+  "latest_version_code": 30501,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.5.1/Zhangxinchuang-public-v0.3.5.1.apk",
   "sha256": "",
   "required": false,
   "changelog": [
-    "新增「归电」功能：很久没有回到目标 App 时，可用来电式全屏页提醒回来。",
-    "感官页新增归电状态卡：显示上次回来、下次最早归电、今日次数、最近拒绝理由与自动检查结果。",
-    "设置页新增归电设置：可改开关、间隔、冷却、每日上限、安静时段、目标 App、主题、文案池和拒绝理由。",
-    "归电对象会读取设置里的对方/AI 称呼；目标 App 可填 ChatGPT、Claude、Gemini、应用昵称或包名。",
-    "MCP 新增 get_guidian_state、set_guidian_config、trigger_guidian、mark_guidian_returned，并保留公开版不合并聆音、鲸鸣、声息。"
+    "允许 Android 端连接局域网/自建服务器的 HTTP 明文地址，例如 http://192.168.x.x:8513。",
+    "修复本地纯 HTTP 服务轮询时报 Cleartext HTTP traffic not permitted 的问题。",
+    "保留 v0.3.5.0 归电公开版全部功能，本版为连接兼容性 hotfix。",
+    "公网部署仍建议使用 HTTPS；HTTP 放开主要用于本人设备、本地局域网和测试环境。"
   ]
 }

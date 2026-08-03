@@ -1,4 +1,4 @@
-# 掌心窗公开版 v0.3.5.0-guidian
+# 掌心窗公开版 v0.3.5.1-cleartext-http
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/linzhi-524/linjian-peek-public)
 
@@ -10,6 +10,17 @@
 
 > 重要提醒：截图、读屏、控制手机、通知、闹钟、应用门禁、自动打开目标 App 都是敏感能力。只在本人设备、本人服务器、本人明确授权的场景使用。不要把 Token 发给别人，也不要接入不可信 MCP 客户端。
 
+
+
+## v0.3.5.1 HTTP 明文连接修复版
+
+这一版是在 v0.3.5.0 归电公开版基础上的 hotfix，主要解决部分用户使用本地/局域网纯 HTTP 服务时，Android 端后台轮询被系统拦截的问题。
+
+- AndroidManifest 已将 `android:usesCleartextTraffic` 改为 `true`。
+- 支持连接 `http://192.168.x.x:8513`、`http://局域网IP:端口` 这类本地 HTTP 服务。
+- 修复日志里反复出现 `Cleartext HTTP traffic to 192.168.x.x not permitted` 的问题。
+- 保留 v0.3.5.0 的归电、感官页、守护页、设置页和 MCP 功能。
+- 公网/正式部署仍推荐 HTTPS；本修复主要面向本人设备、局域网测试和自建 HTTP 服务。
 
 ## v0.3.5.0 归电感官版
 

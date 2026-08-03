@@ -87,8 +87,8 @@ public class MainActivity extends Activity {
         boolean clearedLegacyServer = AppPrefs.migrateLegacyConfig(this);
         loadSettings();
 
-        DebugState.append(this, "掌心窗 v0.3.5.0-public 归电感官版已打开");
-        if (clearedLegacyServer) DebugState.append(this, "已保留服务器地址。v0.3.5.0 不再按域名名称拦截 Render 地址。");
+        DebugState.append(this, "掌心窗 v0.3.5.1-public 归电感官版 · HTTP 测试修复已打开");
+        if (clearedLegacyServer) DebugState.append(this, "已保留服务器地址。v0.3.5.1 不再按域名名称拦截 Render 地址。");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
@@ -279,7 +279,7 @@ public class MainActivity extends Activity {
     }
     private void updateHeader(String tab) {
         if (headerTitle == null || headerSubtitle == null) return;
-        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.5.0 · 新增归电感官与远程设置。"); }
+        if ("life".equals(tab)) { headerTitle.setText("掌心窗"); headerSubtitle.setText("v0.3.5.1 · 允许局域网 HTTP 测试。"); }
         else if ("see".equals(tab)) { headerTitle.setText("感官"); headerSubtitle.setText("看见、归电和轻量状态，都收在这里。"); }
         else if ("gate".equals(tab)) { headerTitle.setText("守护"); headerSubtitle.setText("门禁、天气和提醒，平时收进抽屉。"); }
         else { headerTitle.setText("设置"); headerSubtitle.setText("主题、权限和调试都放这里。"); }
@@ -426,7 +426,7 @@ public class MainActivity extends Activity {
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：v0.3.5.0 归电感官版"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：v0.3.5.1 归电感官版 · HTTP 测试修复"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }

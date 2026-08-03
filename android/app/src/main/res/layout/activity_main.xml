@@ -29,7 +29,7 @@
             android:id="@+id/headerSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="v0.3.5.0-public · 新增归电感官与远程设置。"
+            android:text="v0.3.5.1-public · 允许局域网 HTTP 测试。"
             android:textSize="11sp"
             android:textColor="#FF7E928C"
             android:layout_marginTop="4dp" />
