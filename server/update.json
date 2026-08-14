@@ -1,13 +1,13 @@
 {
-  "latest_version_name": "0.3.5.1",
-  "latest_version_code": 30501,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.5.1/Zhangxinchuang-public-v0.3.5.1.apk",
+  "latest_version_name": "0.3.6.1",
+  "latest_version_code": 30601,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.6.1/Zhangxinchuang-public-v0.3.6.1.apk",
   "sha256": "",
   "required": false,
   "changelog": [
-    "允许 Android 端连接局域网/自建服务器的 HTTP 明文地址，例如 http://192.168.x.x:8513。",
-    "修复本地纯 HTTP 服务轮询时报 Cleartext HTTP traffic not permitted 的问题。",
-    "保留 v0.3.5.0 归电公开版全部功能，本版为连接兼容性 hotfix。",
-    "公网部署仍建议使用 HTTPS；HTTP 放开主要用于本人设备、本地局域网和测试环境。"
+    "README 补充 Render 一键部署、Railway 双服务部署和局域网部署教程。",
+    "MCP 工具说明按公开版能力重新分组，写清楚截图、读屏、归电、守护日历、屏幕休息和主动关心工具。",
+    "继续保留守护日历、今日轨迹、目标 App 设置、息屏和公开版固定签名。",
+    "公开版只保留公开自部署所需的通用能力。"
   ]
 }

@@ -27,6 +27,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Calendar;
+import java.util.Locale;
 
 public class CompanionService extends Service {
     private static final String CHANNEL_ID = "linjian_peek_service";
@@ -47,7 +49,7 @@ public class CompanionService extends Service {
         createNotificationChannel();
         startForeground(NOTIFICATION_ID, buildNotification("已启动，等待掌心窗命令"));
         if (intent != null) {
-            serverUrl = ScreenshotService.normalizeUrl(AppPrefs.cleanServer(intent.getStringExtra("server_url")));
+            serverUrl = ScreenshotService.normalizeUrl(intent.getStringExtra("server_url"));
             token = intent.getStringExtra("token");
         }
         if (serverUrl == null || token == null) {
@@ -58,7 +60,7 @@ public class CompanionService extends Service {
             DebugState.append(this, "服务启动失败：服务器地址或 Token 为空");
             stopSelf(); return START_NOT_STICKY;
         }
-        DebugState.append(this, "掌心窗 v0.3.5.1 服务已启动，实际连接地址：" + serverUrl);
+        DebugState.append(this, "掌心窗公开版 v0.3.6.1 服务已启动，目标：" + serverUrl);
         if (!running) { running = true; startPolling(); } else DebugState.append(this, "服务已在运行，继续轮询");
         return START_STICKY;
     }
@@ -74,22 +76,10 @@ public class CompanionService extends Service {
     private void pollLoop() {
         if (!running) return;
         try {
-            String latestServer = ScreenshotService.normalizeUrl(AppPrefs.server(this));
-            String latestToken = AppPrefs.token(this);
-            if (latestServer == null || latestServer.isEmpty() || latestToken == null || latestToken.isEmpty()) {
-                DebugState.append(this, "轮询暂停：服务器地址或 Token 为空，请重新填写并启动服务");
-                stopSelf();
-                return;
-            }
-            if (!latestServer.equals(serverUrl)) {
-                DebugState.append(this, "检测到服务器地址已更新，切换到：" + latestServer);
-                serverUrl = latestServer;
-            }
-            token = latestToken;
             uploadState(serverUrl, token);
             String body = pollServer();
             if (body != null && body.length() > 0) handleCommandBody(this, body, serverUrl, token);
-        } catch (Exception e) { DebugState.append(this, "轮询异常：" + ScreenshotService.friendlyNetMsg(e)); }
+        } catch (Exception e) { DebugState.append(this, "轮询异常：" + ScreenshotService.shortMsg(e)); }
         if (running) pollHandler.postDelayed(this::pollLoop, Math.max(700, AppPrefs.interval(this)));
     }
 
@@ -101,7 +91,7 @@ public class CompanionService extends Service {
             if (code == 200) {
                 if (body.contains("\"command\": null") || body.contains("\"command\":null")) return "";
                 DebugState.append(this, "轮询成功：收到命令包"); return body;
-            } else DebugState.append(this, "轮询失败：HTTP " + code + " " + ScreenshotService.httpHint(code) + " " + ScreenshotService.clip(body));
+            } else DebugState.append(this, "轮询失败：HTTP " + code + " " + ScreenshotService.clip(body));
             return "";
         } finally { conn.disconnect(); }
     }
@@ -131,14 +121,42 @@ public class CompanionService extends Service {
             int hour = cmd.optInt("hour", -1);
             int minute = cmd.optInt("minute", -1);
             String title = cmd.optString("title", "掌心窗提醒");
-            String message = cmd.optString("message", "掌心窗闹钟");
+            String message = cmd.optString("message", cmd.optString("text", title.length() > 0 ? title : "掌心窗闹钟"));
             boolean vibrate = cmd.optBoolean("vibrate", true);
-            boolean skipUi = cmd.optBoolean("skip_ui", true);
+            boolean skipUi = cmd.optBoolean("skip_ui", cmd.optBoolean("skipUi", true));
+            if ("set_alarm".equals(action) && (hour < 0 || minute < 0)) {
+                double delayMinutes = cmd.optDouble("minutes", 0);
+                if (delayMinutes <= 0) delayMinutes = cmd.optDouble("duration_minutes", 0);
+                if (delayMinutes <= 0) delayMinutes = cmd.optDouble("delay_minutes", 0);
+                if (delayMinutes > 0) {
+                    Calendar c = Calendar.getInstance();
+                    c.add(Calendar.SECOND, (int)Math.max(1, Math.round(delayMinutes * 60.0)));
+                    hour = c.get(Calendar.HOUR_OF_DAY);
+                    minute = c.get(Calendar.MINUTE);
+                    DebugState.append(ctx, "远程闹钟延迟换算：" + delayMinutes + " 分钟 → " + hour + ":" + String.format(Locale.CHINA, "%02d", minute));
+                }
+            }
             String targetText = cmd.optString("target_text", cmd.optString("query", ""));
             String inputText = cmd.optString("text", cmd.optString("input_text", ""));
             String match = cmd.optString("match", "contains");
             int index = cmd.optInt("index", 1);
             boolean append = cmd.optBoolean("append", false);
+            if ("get_calendar_state".equals(action) || "upsert_calendar_event".equals(action) || "add_calendar_event".equals(action) || "delete_calendar_event".equals(action)) {
+                JSONObject rr = CalendarState.handleCommand(ctx, cmd);
+                boolean ok = rr.optBoolean("ok", false);
+                String result = rr.optString("result", rr.toString());
+                DebugState.append(ctx, "执行守护日历命令 " + action + "：" + result);
+                try { reportCommand(ctx, serverUrl, token, id, ok, result); uploadState(serverUrl, token, ctx); } catch (Exception ignored) { }
+                return;
+            }
+            if ("get_guidian_state".equals(action) || "set_guidian_config".equals(action) || "trigger_guidian".equals(action) || "mark_guidian_returned".equals(action)) {
+                JSONObject rr = GuidianState.handleCommand(ctx, cmd);
+                boolean ok = rr.optBoolean("ok", false);
+                String result = rr.optString("result", rr.toString());
+                DebugState.append(ctx, "执行归电命令 " + action + "：" + result);
+                try { reportCommand(ctx, serverUrl, token, id, ok, result); uploadState(serverUrl, token, ctx); } catch (Exception ignored) { }
+                return;
+            }
             if ("save_known_app".equals(action)) {
                 String alias = cmd.optString("alias", app);
                 String p = cmd.optString("package", pkg);
@@ -149,18 +167,10 @@ public class CompanionService extends Service {
                 return;
             }
             if (isAppGateAction(action)) {
-                JSONObject rr = AppGate.handleCommand(ctx, cmd);
+                JSONObject rr = AppGate.handleCommand(ctx, normalizedGateCommand(cmd));
                 boolean ok = rr.optBoolean("ok", false);
                 String result = rr.optString("result", rr.toString());
                 DebugState.append(ctx, "执行应用门禁命令 " + action + "：" + result);
-                try { reportCommand(ctx, serverUrl, token, id, ok, result); uploadState(serverUrl, token, ctx); } catch (Exception ignored) { }
-                return;
-            }
-            if (isGuidianAction(action)) {
-                JSONObject rr = GuidianState.handleCommand(ctx, cmd);
-                boolean ok = rr.optBoolean("ok", false);
-                String result = rr.optString("result", rr.toString());
-                DebugState.append(ctx, "执行归电命令 " + action + "：" + result);
                 try { reportCommand(ctx, serverUrl, token, id, ok, result); uploadState(serverUrl, token, ctx); } catch (Exception ignored) { }
                 return;
             }
@@ -172,12 +182,29 @@ public class CompanionService extends Service {
         } catch (Exception e) { DebugState.append(ctx, "命令解析异常：" + ScreenshotService.shortMsg(e)); }
     }
 
-    private static boolean isAppGateAction(String action) {
-        return "lock_app".equals(action) || "unlock_app".equals(action) || "temporary_unlock_app".equals(action) || "extend_lock".equals(action) || "deny_unlock_request".equals(action) || "get_lock_state".equals(action) || "set_emergency_passphrase".equals(action) || "add_locked_app".equals(action) || "remove_locked_app".equals(action) || "list_lockable_apps".equals(action);
+    private static String normalizeGateAction(String action) {
+        if ("screen_break_app".equals(action) || "start_screen_break".equals(action) || "screen_break".equals(action)) return "lock_app";
+        if ("end_screen_break".equals(action) || "stop_screen_break".equals(action)) return "unlock_app";
+        if ("temporary_screen_break_release".equals(action) || "temporary_screen_release".equals(action)) return "temporary_unlock_app";
+        if ("extend_screen_break".equals(action)) return "extend_lock";
+        if ("deny_screen_break_release_request".equals(action) || "deny_break_release_request".equals(action)) return "deny_unlock_request";
+        if ("get_screen_break_state".equals(action)) return "get_lock_state";
+        if ("set_screen_break_passphrase".equals(action)) return "set_emergency_passphrase";
+        if ("add_screen_break_app".equals(action)) return "add_locked_app";
+        if ("remove_screen_break_app".equals(action)) return "remove_locked_app";
+        if ("list_screen_break_apps".equals(action)) return "list_lockable_apps";
+        return action;
     }
 
-    private static boolean isGuidianAction(String action) {
-        return "get_guidian_state".equals(action) || "set_guidian_config".equals(action) || "trigger_guidian".equals(action) || "mark_guidian_returned".equals(action);
+    private static JSONObject normalizedGateCommand(JSONObject cmd) throws Exception {
+        JSONObject copy = new JSONObject(cmd.toString());
+        copy.put("action", normalizeGateAction(copy.optString("action", "")));
+        return copy;
+    }
+
+    private static boolean isAppGateAction(String action) {
+        action = normalizeGateAction(action);
+        return "lock_app".equals(action) || "unlock_app".equals(action) || "temporary_unlock_app".equals(action) || "extend_lock".equals(action) || "deny_unlock_request".equals(action) || "get_lock_state".equals(action) || "set_emergency_passphrase".equals(action) || "add_locked_app".equals(action) || "remove_locked_app".equals(action) || "list_lockable_apps".equals(action);
     }
 
     private static void executeCommand(Context ctx, String id, String action, String app, String pkg, float x, float y, float x1, float y1, float x2, float y2, long duration, int hour, int minute, String title, String message, boolean vibrate, String serverUrl, String token) {
@@ -203,8 +230,8 @@ public class CompanionService extends Service {
             ScreenshotService svc = ScreenshotService.getInstance();
             if ("wait".equals(action)) { ok = true; result = "wait";
             } else if ("get_life_state".equals(action)) { ok = true; result = LifeState.collect(ctx).toString();
-            } else if (isAppGateAction(action)) { JSONObject rr = AppGate.handleCommand(ctx, new JSONObject().put("action", action).put("app", app).put("package", pkg)); ok = rr.optBoolean("ok", false); result = rr.optString("result", rr.toString());
-            } else if (isGuidianAction(action)) { JSONObject rr = GuidianState.handleCommand(ctx, new JSONObject().put("action", action)); ok = rr.optBoolean("ok", false); result = rr.toString();
+            } else if ("get_calendar_state".equals(action) || "upsert_calendar_event".equals(action) || "add_calendar_event".equals(action) || "delete_calendar_event".equals(action)) { JSONObject rr = CalendarState.handleCommand(ctx, new JSONObject().put("action", action).put("title", title).put("date", message)); ok = rr.optBoolean("ok", false); result = rr.optString("result", rr.toString());
+            } else if (isAppGateAction(action)) { JSONObject rr = AppGate.handleCommand(ctx, new JSONObject().put("action", normalizeGateAction(action)).put("app", app).put("package", pkg)); ok = rr.optBoolean("ok", false); result = rr.optString("result", rr.toString());
             } else if ("get_screen_nodes".equals(action)) {
                 if (svc != null) { svc.refreshScreenModel(); ok = true; result = svc.getScreenNodesJsonNow(); }
                 else result = "accessibility service not ready";
@@ -224,10 +251,12 @@ public class CompanionService extends Service {
             } else if ("home".equals(action)) { ok = svc != null && svc.doHome(); result = ok ? "home" : "home_failed_or_accessibility_missing";
             } else if ("back".equals(action)) { ok = svc != null && svc.doBack(); result = ok ? "back" : "back_failed_or_accessibility_missing";
             } else if ("recents".equals(action)) { ok = svc != null && svc.doRecents(); result = ok ? "recents" : "recents_failed_or_accessibility_missing";
+            } else if ("screen_off".equals(action) || "turn_screen_off".equals(action) || "lock_screen".equals(action) || "phone_screen_off".equals(action)) { ok = svc != null && svc.doLockScreen(); result = ok ? "screen_off" : "screen_off_failed_or_accessibility_missing_or_android_too_old";
             } else if ("tap".equals(action)) { ok = svc != null && svc.doTap(x, y); result = ok ? ("tap:" + x + "," + y) : "tap_failed_or_accessibility_missing";
             } else if ("swipe".equals(action)) { ok = svc != null && svc.doSwipe(x1, y1, x2, y2, duration); result = ok ? "swipe" : "swipe_failed_or_accessibility_missing";
             } else if ("set_alarm".equals(action)) { ok = setAlarm(ctx, hour, minute, message, vibrate, skipUi); result = ok ? "alarm " + hour + ":" + minute : "cannot set alarm";
             } else if ("send_notification".equals(action)) { ok = showReminderNotification(ctx, title, message); result = ok ? "heads_up_notification_sent" : "notification permission missing";
+            } else if ("get_guidian_state".equals(action) || "set_guidian_config".equals(action) || "trigger_guidian".equals(action) || "mark_guidian_returned".equals(action)) { JSONObject rr = GuidianState.handleCommand(ctx, new JSONObject().put("action", action)); ok = rr.optBoolean("ok", false); result = rr.toString();
             } else { ok = true; result = "noop"; }
         } catch (Exception e) { result = ScreenshotService.shortMsg(e); }
         try { out.put("ok", ok); out.put("action", action); out.put("result", result); } catch (Exception ignored) { }
@@ -356,7 +385,7 @@ public class CompanionService extends Service {
             NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm == null) return false;
             String safeTitle = (title == null || title.trim().isEmpty()) ? "掌心窗提醒" : title.trim();
-            String safeMessage = (message == null || message.trim().isEmpty()) ? (AppPrefs.userName(ctx) + "，看一眼这里。") : message.trim();
+            String safeMessage = (message == null || message.trim().isEmpty()) ? AppPrefs.userName(ctx) + "，看一眼这里。" : message.trim();
 
             Intent detail = new Intent(ctx, ReminderActivity.class);
             detail.putExtra("title", safeTitle);
@@ -400,18 +429,20 @@ public class CompanionService extends Service {
             i.putExtra(AlarmClock.EXTRA_VIBRATE, vibrate);
             i.putExtra(AlarmClock.EXTRA_SKIP_UI, skipUi);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            if (i.resolveActivity(ctx.getPackageManager()) == null) return false;
             ctx.startActivity(i);
             return true;
-        } catch (Exception e) { return false; }
+        } catch (Exception e) { DebugState.append(ctx, "远程闹钟异常：" + ScreenshotService.shortMsg(e)); return false; }
     }
 
     private static void uploadState(String serverUrl, String token, Context ctx) throws Exception {
         JSONObject state = LifeState.collect(ctx);
+        // 归电自动补弹：前台服务每次上传生活状态时都顺手检查一次。
+        // 这样 Android 后台定时睡过头时，只要掌心窗服务醒着，就会补一次到点归电。
+        GuidianState.evaluate(ctx, state);
+        state = LifeState.collect(ctx);
         postJson(serverUrl + "/api/device/state", token, state);
         ActiveReminder.evaluate(ctx, state);
         HomeMode.evaluate(ctx, state);
-        GuidianState.evaluate(ctx, state);
     }
     private static void uploadState(String serverUrl, String token) throws Exception {
         Context ctx = ScreenshotService.getInstance();

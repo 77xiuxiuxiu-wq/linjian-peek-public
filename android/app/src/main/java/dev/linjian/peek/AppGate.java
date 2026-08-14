@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -117,6 +118,40 @@ public class AppGate {
         return put(out, false, "unknown_app_gate_action:" + action);
     }
 
+    private static double commandMinutes(JSONObject cmd, double fallback) {
+        try {
+            // 远程 MCP 的通用 send_phone_command 会把未填写的字段也带上，例如 minutes=0。
+            // 旧逻辑只要看到 minutes 字段就立刻返回 fallback，导致 duration_minutes=1/2/60 被忽略，统一落到默认 30 分钟。
+            // 这里改成“只有正数才采用”，0 或缺省继续往后看其它字段。
+            double v = 0;
+            if (cmd.has("duration_minutes")) { v = cmd.optDouble("duration_minutes", 0); if (v > 0) return v; }
+            if (cmd.has("minutes")) { v = cmd.optDouble("minutes", 0); if (v > 0) return v; }
+            if (cmd.has("extend_minutes")) { v = cmd.optDouble("extend_minutes", 0); if (v > 0) return v; }
+            if (cmd.has("locked_minutes")) { v = cmd.optDouble("locked_minutes", 0); if (v > 0) return v; }
+            if (cmd.has("duration_ms")) { v = cmd.optDouble("duration_ms", 0) / 60000.0; if (v > 0) return v; }
+            if (cmd.has("duration_millis")) { v = cmd.optDouble("duration_millis", 0) / 60000.0; if (v > 0) return v; }
+            if (cmd.has("duration_seconds")) { v = cmd.optDouble("duration_seconds", 0) / 60.0; if (v > 0) return v; }
+            if (cmd.has("locked_until_ms")) {
+                long until = cmd.optLong("locked_until_ms", 0);
+                if (until > System.currentTimeMillis()) return Math.max(0.1, (until - System.currentTimeMillis()) / 60000.0);
+            }
+            if (cmd.has("duration")) {
+                double d = cmd.optDouble("duration", -1);
+                // 350 是点击/滑动命令的默认 duration，不应该被门禁误当成 350 分钟或 350 秒。
+                if (d > 0 && Math.abs(d - 350.0) > 0.001) {
+                    if (d >= 600000) return d / 60000.0; // 毫秒：7200000 = 2 小时
+                    if (d >= 600) return d / 60.0;      // 秒：7200 = 2 小时
+                    return d;                           // 小数字按分钟
+                }
+            }
+        } catch (Exception ignored) { }
+        return fallback;
+    }
+
+    private static double positive(double value, double fallback) {
+        return value > 0 ? value : fallback;
+    }
+
     private static JSONObject lockApp(Context ctx, JSONObject cmd) throws Exception {
         String pkg = resolvePackage(ctx, cmd);
         if (!AppPrefs.isPackageLike(pkg)) return put(new JSONObject(), false, "package_invalid");
@@ -124,8 +159,7 @@ public class AppGate {
         String appName = cmd.optString("appName", cmd.optString("app_name", cmd.optString("app", labelOf(ctx, pkg))));
         long until = cmd.optLong("locked_until_ms", 0);
         if (until <= 0) {
-            double minutes = cmd.optDouble("locked_minutes", cmd.optDouble("duration_minutes", cmd.optDouble("minutes", 30)));
-            if (minutes <= 0) minutes = 30;
+            double minutes = commandMinutes(cmd, 30);
             until = System.currentTimeMillis() + Math.round(minutes * 60000.0);
         }
         JSONObject lock = new JSONObject();
@@ -135,8 +169,8 @@ public class AppGate {
         lock.put("locked_until_ms", until);
         lock.put("locked_until_local", formatLocal(until));
         lock.put("mode", normalizeMode(cmd.optString("mode", "medium")));
-        lock.put("reason", cmd.optString("reason", AppPrefs.partnerName(ctx) + "先把这扇门关一会儿。"));
-        lock.put("message", cmd.optString("message", "先回来找我，不准一个人刷太久。"));
+        lock.put("reason", cmd.optString("reason", "").trim());
+        lock.put("message", cmd.optString("message", "").trim());
         lock.put("created_at_ms", System.currentTimeMillis());
         lock.put("emergency_unlock_minutes", Math.max(1, cmd.optInt("emergencyUnlockMinutes", cmd.optInt("emergency_unlock_minutes", 5))));
         String pass = cmd.optString("emergencyPassphrase", cmd.optString("emergency_passphrase", ""));
@@ -186,7 +220,7 @@ public class AppGate {
         if (l == null) return put(new JSONObject(), false, "lock_not_found:" + pkg);
         long base = Math.max(System.currentTimeMillis(), l.optLong("locked_until_ms", System.currentTimeMillis()));
         long until = cmd.optLong("locked_until_ms", 0);
-        if (until <= 0) until = base + Math.round(cmd.optDouble("minutes", cmd.optDouble("extend_minutes", 10)) * 60000.0);
+        if (until <= 0) until = base + Math.round(commandMinutes(cmd, 10) * 60000.0);
         l.put("locked_until_ms", until); l.put("locked_until_local", formatLocal(until)); l.put("active", true);
         if (cmd.optString("reason", "").length() > 0) l.put("reason", cmd.optString("reason"));
         if (cmd.optString("message", "").length() > 0) l.put("message", cmd.optString("message"));
@@ -196,7 +230,7 @@ public class AppGate {
 
     private static JSONObject denyUnlock(Context ctx, JSONObject cmd) throws Exception {
         String pkg = resolvePackage(ctx, cmd);
-        String msg = cmd.optString("message", cmd.optString("reason", AppPrefs.partnerName(ctx) + "拒绝了这次解锁申请。"));
+        String msg = cmd.optString("message", cmd.optString("reason", AppPrefs.companionName(ctx) + "拒绝了这次解锁申请。"));
         log(ctx, "拒绝解锁申请：" + pkg + "；" + msg);
         return put(new JSONObject(), true, "denied_unlock_request:" + pkg + ":" + msg);
     }
@@ -233,6 +267,7 @@ public class AppGate {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             ctx.startActivity(i);
             log(ctx, "门禁拦截：" + lock.optString("app_name", pkg));
+            ActivityEventStore.recordPhone(ctx, "screen_break_trigger", "应用门禁触发", lock.optString("app_name", pkg));
         } catch (Exception e) { DebugState.append(ctx, "门禁检查异常：" + ScreenshotService.shortMsg(e)); }
     }
 
@@ -393,7 +428,17 @@ public class AppGate {
     }
 
     private static String[] protectedPackages(Context ctx) {
-        return new String[]{SELF_PACKAGE, AppPrefs.homeTargetPackage(ctx), "com.android.settings", "com.android.phone", "com.google.android.dialer", "com.android.contacts", "com.android.mms", "com.eg.android.AlipayGphone"};
+        ArrayList<String> packages = new ArrayList<>();
+        packages.add(SELF_PACKAGE);
+        String companionTarget = AppPrefs.homeTargetPackage(ctx);
+        if (!companionTarget.isEmpty()) packages.add(companionTarget);
+        packages.add("com.android.settings");
+        packages.add("com.android.phone");
+        packages.add("com.google.android.dialer");
+        packages.add("com.android.contacts");
+        packages.add("com.android.mms");
+        packages.add("com.eg.android.AlipayGphone");
+        return packages.toArray(new String[0]);
     }
 
     private static boolean isProtectedPackage(Context ctx, String pkg) {
