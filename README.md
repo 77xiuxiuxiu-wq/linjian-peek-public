@@ -1,4 +1,4 @@
-# 掌心窗公开版 v0.3.6.1
+# 掌心窗公开版 v0.3.6.2
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/linzhi-524/linjian-peek-public)
 
@@ -45,15 +45,15 @@ update.json   版本更新信息
 
 1. 将源码包解压并覆盖到公开仓库根目录，确保 `.github`、`android`、`server`、`mcp` 位于根目录。
 2. 打开 GitHub 仓库 → **Actions** → **Build Android Public APK** → **Run workflow**。
-3. 构建成功后下载 `zhangxinchuang-public-v0.3.6.1-apk` artifact。
+3. 构建成功后下载 `zhangxinchuang-public-v0.3.6.2-apk` artifact。
 
 构建产物为：
 
 ```text
-android/Zhangxinchuang-public-v0.3.6.1.apk
+android/Zhangxinchuang-public-v0.3.6.2.apk
 ```
 
-版本名 `0.3.6.1`，版本码 `30601`。
+版本名 `0.3.6.2`，版本码 `30602`。
 
 ### 固定签名
 
@@ -92,7 +92,7 @@ Blueprint 会自动生成并共享：
    - Streamable HTTP：`https://你的-mcp-域名/mcp`
    - SSE：`https://你的-mcp-域名/sse`
 
-如果你是从旧版 0.3.6.1 更新上来，**直接重新部署 MCP 服务即可**。新版 MCP 会兼容旧环境变量：即使 `LINJIAN_URL` 仍然是旧版自动写入的 `http://zhangxinchuang-server-xxxx:10000` 内网地址，也会自动兜底转换为 `https://zhangxinchuang-server-xxxx.onrender.com` 公网地址再连接。
+如果你是从旧版 0.3.6.2 更新上来，**直接重新部署 MCP 服务即可**。新版 MCP 会兼容旧环境变量：即使 `LINJIAN_URL` 仍然是旧版自动写入的 `http://zhangxinchuang-server-xxxx:10000` 内网地址，也会自动兜底转换为 `https://zhangxinchuang-server-xxxx.onrender.com` 公网地址再连接。
 
 如果你重新同步/刷新 Blueprint，新版会自动把 `LINJIAN_URL` 改为引用 server 的公网 `RENDER_EXTERNAL_URL`；如果你只点 **Redeploy**，也可以依靠新版 MCP 的兜底逻辑修复，不需要用户手动复制 URL。
 
@@ -348,4 +348,4 @@ MCP 详细工具说明见 [docs/mcp.md](docs/mcp.md)。常用工具分组如下�
 
 许可条款见 [LICENSE](LICENSE)。
 
-> v0.3.6.1 补充：无障碍状态现在以系统已启用服务列表为准，并会在无障碍服务解绑时清理旧连接状态，避免“App 里看似已开启、进入系统设置后又显示未开启”的误判。
+> v0.3.6.2 补充：无障碍状态会在从系统设置返回后延迟复查多次，并兼容不同系统写入无障碍组件名的格式差异；如果侧载 APK 被系统拦截，App 会提示去“应用信息 → 允许受限设置”，再回无障碍开启“掌心窗服务”。

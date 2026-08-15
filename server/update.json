@@ -1,15 +1,14 @@
 {
-  "latest_version_name": "0.3.6.1",
-  "latest_version_code": 30601,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.6.1/Zhangxinchuang-public-v0.3.6.1.apk",
+  "latest_version_name": "0.3.6.2",
+  "latest_version_code": 30602,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.6.2/Zhangxinchuang-public-v0.3.6.2.apk",
   "sha256": "",
   "required": false,
   "changelog": [
-    "修复无障碍权限状态误判：进入系统设置前后显示不一致时，以系统已启用服务列表和服务连接状态重新校准。",
-    "修复 Render 公开部署中 MCP 连接 server 时可能出现 TypeError: fetch failed 的问题。",
-    "旧版部署只需重新 Redeploy MCP，新版会自动把旧 Render 内网地址兜底为公网地址。",
-    "修复无障碍权限开启后 App 内仍显示已关闭/待开启的状态判断和服务声明兼容问题。",
-    "修复 MCP list_known_apps 工具仍引用旧变量导致运行时报错的问题。",
+    "修复无障碍权限从系统设置返回后又显示未开启的问题：增加返回后的多次延迟复查，避免系统绑定延迟导致误判。",
+    "增强无障碍组件识别：兼容不同系统写入 ENABLED_ACCESSIBILITY_SERVICES 时的组件名格式差异。",
+    "新增无障碍受限设置提示：如果侧载 APK 被系统拦截，可直接提示去应用信息允许受限设置。",
+    "继续保留 Render/MCP 自动公网 URL 与旧内网地址兜底逻辑，旧部署仍只需 Redeploy MCP。",
     "继续保留守护日历、今日轨迹、目标 App 设置、息屏、MCP 工具和公开版固定签名。"
   ]
 }

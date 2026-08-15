@@ -58,6 +58,8 @@ import java.util.Date;
 import java.util.List;
 
 public class MainActivity extends Activity {
+    private static final String PREF_A11Y_SETTINGS_OPENED_AT = "a11y_settings_opened_at";
+    private static final long A11Y_CONFIRM_WINDOW_MS = 30000L;
     private static final String DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/linzhi-524/linjian-peek-public/main/update.json";
     private int latestVersionCode = AppPrefs.APP_VERSION_CODE;
     private String latestVersionName = AppPrefs.APP_VERSION_NAME;
@@ -118,12 +120,12 @@ public class MainActivity extends Activity {
         buildMagazinePages();
         loadSettings();
 
-        DebugState.append(this, "掌心窗公开版 v0.3.6.1 已打开");
+        DebugState.append(this, "掌心窗公开版 v0.3.6.2 已打开");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
 
-        if (accessibilityButton != null) accessibilityButton.setOnClickListener(v -> openAccessibilitySettings());
+        if (accessibilityButton != null) accessibilityButton.setOnClickListener(v -> { if (recentlyOpenedAccessibilitySettings() && !isAccessibilityServiceEnabled()) showAccessibilityHelpDialog(); else openAccessibilitySettings(); });
         if (usageAccessButton != null) usageAccessButton.setOnClickListener(v -> openUsageAccessSettings());
         if (toggleButton != null) toggleButton.setOnClickListener(v -> { if (serviceRunning) stopCompanionService(); else startCompanionService(); });
         if (refreshLifeButton != null) refreshLifeButton.setOnClickListener(v -> { saveSettings(); updateUI(); Toast.makeText(this, "已刷新生活总览", Toast.LENGTH_SHORT).show(); });
@@ -1480,7 +1482,7 @@ public class MainActivity extends Activity {
 
     private int dp(float v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
-    @Override protected void onResume() { super.onResume(); serviceRunning = CompanionService.isRunning(); updateUI(); uiHandler.removeCallbacks(refreshTick); uiHandler.post(refreshTick); }
+    @Override protected void onResume() { super.onResume(); serviceRunning = CompanionService.isRunning(); updateUI(); if (recentlyOpenedAccessibilitySettings()) scheduleAccessibilityFollowupChecks(); uiHandler.removeCallbacks(refreshTick); uiHandler.post(refreshTick); }
     @Override protected void onPause() { uiHandler.removeCallbacks(refreshTick); super.onPause(); }
 
 
@@ -1547,7 +1549,7 @@ public class MainActivity extends Activity {
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：公开版 v0.3.6.1 右侧 love 线稿花枝已启用"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：公开版 v0.3.6.2 右侧 love 线稿花枝已启用"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }
@@ -1617,12 +1619,53 @@ public class MainActivity extends Activity {
     private int parseInt(String raw, int def, int min, int max) { try { int v = Integer.parseInt(raw); if (v < min) return min; if (v > max) return max; return v; } catch (Exception e) { return def; } }
     private void openAccessibilitySettings() {
         try {
+            getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putLong(PREF_A11Y_SETTINGS_OPENED_AT, System.currentTimeMillis()).apply();
             Intent i = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             startActivity(i);
-            Toast.makeText(this, "开启“掌心窗服务”后返回掌心窗", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "开启“掌心窗服务”后返回；若返回仍未开启，请先允许受限设置", Toast.LENGTH_LONG).show();
+            scheduleAccessibilityFollowupChecks();
         } catch (Exception e) {
-            Toast.makeText(this, "设置 → 无障碍 → 已安装的服务 → 掌心窗服务", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "设置 → 应用 → 掌心窗 → 允许受限设置；再到无障碍开启掌心窗服务", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void openAppDetailsSettings() {
+        try {
+            Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            i.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(i);
+            Toast.makeText(this, "如有右上角菜单，请先点“允许受限设置”，再回无障碍开启掌心窗服务", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "设置 → 应用 → 掌心窗 → 右上角 → 允许受限设置", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void showAccessibilityHelpDialog() {
+        try {
+            new AlertDialog.Builder(this)
+                    .setTitle("无障碍还没真正连上")
+                    .setMessage("如果你在系统无障碍里打开后，回到掌心窗又变成未开启，通常是系统还没完成绑定，或 Android/部分国产系统拦截了侧载 APK 的无障碍权限。\n\n请先等 5-10 秒；如果仍未开启，到“应用信息 → 掌心窗 → 右上角菜单”允许受限设置，然后再回无障碍开启“掌心窗服务”。")
+                    .setPositiveButton("去无障碍设置", (d, w) -> openAccessibilitySettings())
+                    .setNegativeButton("去应用信息", (d, w) -> openAppDetailsSettings())
+                    .setNeutralButton("我知道了", null)
+                    .show();
+        } catch (Exception e) {
+            Toast.makeText(this, "先允许受限设置，再开启掌心窗服务", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void scheduleAccessibilityFollowupChecks() {
+        long[] delays = new long[] { 600L, 1500L, 3000L, 6000L, 12000L };
+        for (long delay : delays) {
+            uiHandler.postDelayed(() -> { serviceRunning = CompanionService.isRunning(); updateUI(); }, delay);
+        }
+    }
+
+    private boolean recentlyOpenedAccessibilitySettings() {
+        try {
+            long t = getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).getLong(PREF_A11Y_SETTINGS_OPENED_AT, 0L);
+            return t > 0 && System.currentTimeMillis() - t < A11Y_CONFIRM_WINDOW_MS;
+        } catch (Exception ignored) { return false; }
     }
 
     private String accessibilityComponentLong() {
@@ -1633,24 +1676,51 @@ public class MainActivity extends Activity {
         return getPackageName() + "/." + ScreenshotService.class.getSimpleName();
     }
 
+    private boolean classMatchesAccessibilityService(String cls) {
+        if (cls == null) return false;
+        String c = cls.trim();
+        return ScreenshotService.class.getName().equals(c)
+                || c.endsWith("." + ScreenshotService.class.getSimpleName())
+                || ScreenshotService.class.getSimpleName().equals(c);
+    }
+
     private boolean matchesAccessibilityComponent(String raw) {
         if (raw == null) return false;
         String item = raw.trim();
         if (item.length() == 0) return false;
         String expectedLong = accessibilityComponentLong();
         String expectedShort = accessibilityComponentShort();
-        return expectedLong.equalsIgnoreCase(item) || expectedShort.equalsIgnoreCase(item) || item.toLowerCase(Locale.ROOT).endsWith("/" + ScreenshotService.class.getName().toLowerCase(Locale.ROOT));
+        if (expectedLong.equalsIgnoreCase(item) || expectedShort.equalsIgnoreCase(item)) return true;
+        try {
+            ComponentName cn = ComponentName.unflattenFromString(item);
+            if (cn != null && getPackageName().equals(cn.getPackageName()) && classMatchesAccessibilityService(cn.getClassName())) return true;
+        } catch (Exception ignored) { }
+        String lower = item.toLowerCase(Locale.ROOT).replace(" ", "");
+        String pkg = getPackageName().toLowerCase(Locale.ROOT);
+        String full = ScreenshotService.class.getName().toLowerCase(Locale.ROOT);
+        String simple = ScreenshotService.class.getSimpleName().toLowerCase(Locale.ROOT);
+        return lower.contains(pkg + "/") && (lower.contains(full) || lower.contains("/.") && lower.contains(simple) || lower.endsWith("/" + simple));
+    }
+
+    private String rawEnabledAccessibilityServices() {
+        try {
+            String enabled = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            return enabled == null ? "" : enabled;
+        } catch (Exception ignored) { return ""; }
     }
 
     private boolean isAccessibilityServiceEnabledInSettings() {
         try {
-            String enabled = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-            if (enabled == null || enabled.length() == 0) return false;
+            String enabled = rawEnabledAccessibilityServices();
+            if (enabled.length() == 0) return false;
             TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
             splitter.setString(enabled);
             while (splitter.hasNext()) {
                 if (matchesAccessibilityComponent(splitter.next())) return true;
             }
+            // Some OEM ROMs store accessibility components in a slightly non-standard shape.
+            // If the secure setting clearly contains this package and service class, treat it as enabled.
+            if (matchesAccessibilityComponent(enabled)) return true;
         } catch (Exception ignored) { }
         return false;
     }
@@ -1665,14 +1735,18 @@ public class MainActivity extends Activity {
                 if (info == null || info.getResolveInfo() == null || info.getResolveInfo().serviceInfo == null) continue;
                 String pkg = info.getResolveInfo().serviceInfo.packageName;
                 String cls = info.getResolveInfo().serviceInfo.name;
-                if (getPackageName().equals(pkg) && (ScreenshotService.class.getName().equals(cls) || cls.endsWith("." + ScreenshotService.class.getSimpleName()))) return true;
+                if (getPackageName().equals(pkg) && classMatchesAccessibilityService(cls)) return true;
             }
         } catch (Exception ignored) { }
         return false;
     }
 
     private boolean isAccessibilityServiceEnabled() {
-        return isAccessibilityServiceEnabledInSettings() || isAccessibilityServiceEnabledByManager();
+        boolean enabled = isAccessibilityServiceEnabledInSettings() || isAccessibilityServiceEnabledByManager();
+        if (enabled && getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).getLong(PREF_A11Y_SETTINGS_OPENED_AT, 0L) > 0) {
+            getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().remove(PREF_A11Y_SETTINGS_OPENED_AT).apply();
+        }
+        return enabled;
     }
 
     private void openUsageAccessSettings() { try { startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)); } catch (Exception e) { Toast.makeText(this, "设置 → 应用 → 特殊权限 → 使用情况访问", Toast.LENGTH_LONG).show(); } }
@@ -1681,13 +1755,14 @@ public class MainActivity extends Activity {
     private void updateUI() {
         boolean accessibilityEnabled = isAccessibilityServiceEnabled();
         boolean accessibilityConnected = accessibilityEnabled && ScreenshotService.getInstance() != null;
+        boolean accessibilityConfirming = !accessibilityEnabled && recentlyOpenedAccessibilitySettings();
         boolean accessibilityOk = accessibilityEnabled;
         boolean usageOk = LifeState.hasUsagePermission(this);
         UITheme visualTheme = UITheme.current(this);
         updateHeader(currentTab);
-        if (serviceRunning) { if (statusText != null) { statusText.setText(accessibilityOk ? "●  窗已打开 · 陪伴和守护都在" : "●  生活小窗已打开 · 无障碍待开启"); statusText.setTextColor(accessibilityOk ? visualTheme.primary : 0xFFCF8A62); } if (toggleButton != null) { toggleButton.setText("停止服务"); toggleButton.setBackgroundResource(R.drawable.pill_danger); } }
-        else { if (statusText != null) { statusText.setText(accessibilityOk ? "○  感官已准备 · 服务等待开启" : "○  天气可用 · 无障碍待开启"); statusText.setTextColor(visualTheme.subtext); } if (toggleButton != null) { toggleButton.setText("启动服务"); toggleButton.setBackgroundResource(R.drawable.pill_primary); } }
-        if (accessibilityButton != null) accessibilityButton.setText(accessibilityOk ? (accessibilityConnected ? "无障碍权限：已开启" : "无障碍权限：系统已开启，等待连接") : "打开无障碍设置");
+        if (serviceRunning) { if (statusText != null) { statusText.setText(accessibilityOk ? "●  窗已打开 · 陪伴和守护都在" : (accessibilityConfirming ? "●  生活小窗已打开 · 正在确认无障碍" : "●  生活小窗已打开 · 无障碍待开启")); statusText.setTextColor(accessibilityOk ? visualTheme.primary : 0xFFCF8A62); } if (toggleButton != null) { toggleButton.setText("停止服务"); toggleButton.setBackgroundResource(R.drawable.pill_danger); } }
+        else { if (statusText != null) { statusText.setText(accessibilityOk ? "○  感官已准备 · 服务等待开启" : (accessibilityConfirming ? "○  正在确认无障碍状态" : "○  天气可用 · 无障碍待开启")); statusText.setTextColor(accessibilityConfirming ? 0xFFCF8A62 : visualTheme.subtext); } if (toggleButton != null) { toggleButton.setText("启动服务"); toggleButton.setBackgroundResource(R.drawable.pill_primary); } }
+        if (accessibilityButton != null) accessibilityButton.setText(accessibilityOk ? (accessibilityConnected ? "无障碍权限：已开启" : "无障碍权限：系统已开启，等待连接") : (accessibilityConfirming ? "无障碍权限：正在确认，点此查看提示" : "打开无障碍设置"));
         if (usageAccessButton != null) usageAccessButton.setText(usageOk ? "使用情况权限：已开启" : "打开使用情况访问权限");
         try {
             JSONObject s = LifeState.collect(this);
