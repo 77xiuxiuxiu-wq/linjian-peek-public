@@ -107,12 +107,24 @@ public class ScreenshotService extends AccessibilityService {
     }
     @Override public void onInterrupt() { DebugState.append(this, "无障碍服务被中断"); }
 
-    @Override public void onDestroy() {
-        DebugState.append(this, "无障碍服务已断开");
+    private void markDisconnected(String reason) {
+        DebugState.append(this, reason);
         instance = null;
+        currentPackage = "";
+        screenText = "";
+        screenNodesJson = "[]";
         if (watchdog != null) { watchdog.removeCallbacksAndMessages(null); watchdog = null; }
         if (backgroundPollHandler != null) { backgroundPollHandler.removeCallbacksAndMessages(null); backgroundPollHandler = null; }
         if (backgroundPollThread != null) { backgroundPollThread.quitSafely(); backgroundPollThread = null; }
+    }
+
+    @Override public boolean onUnbind(Intent intent) {
+        markDisconnected("无障碍服务已解绑：系统可能已关闭权限");
+        return super.onUnbind(intent);
+    }
+
+    @Override public void onDestroy() {
+        markDisconnected("无障碍服务已断开");
         super.onDestroy();
     }
 

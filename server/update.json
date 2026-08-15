@@ -5,6 +5,7 @@
   "sha256": "",
   "required": false,
   "changelog": [
+    "修复无障碍权限状态误判：进入系统设置前后显示不一致时，以系统已启用服务列表和服务连接状态重新校准。",
     "修复 Render 公开部署中 MCP 连接 server 时可能出现 TypeError: fetch failed 的问题。",
     "旧版部署只需重新 Redeploy MCP，新版会自动把旧 Render 内网地址兜底为公网地址。",
     "修复无障碍权限开启后 App 内仍显示已关闭/待开启的状态判断和服务声明兼容问题。",

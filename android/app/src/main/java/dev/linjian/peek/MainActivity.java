@@ -1,5 +1,6 @@
 package dev.linjian.peek;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -18,6 +19,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.view.MotionEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -53,6 +55,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
 public class MainActivity extends Activity {
     private static final String DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/linzhi-524/linjian-peek-public/main/update.json";
@@ -1294,7 +1297,7 @@ public class MainActivity extends Activity {
         if (saveGuidianSettingsButton != null) { saveGuidianSettingsButton.setBackground(t.pill(true)); saveGuidianSettingsButton.setTextColor(Color.WHITE); }
         if (toggleButton != null) { toggleButton.setBackground(serviceRunning ? dangerPill(t) : t.pill(true)); toggleButton.setTextColor(Color.WHITE); }
         if (themeText != null) themeText.setTextColor(t.subtext);
-        if (statusText != null) statusText.setTextColor(serviceRunning && ScreenshotService.getInstance() != null ? t.primary : t.subtext);
+        if (statusText != null) statusText.setTextColor(serviceRunning && isAccessibilityServiceEnabled() ? t.primary : t.subtext);
         if (companionAvatarView != null) {
             companionAvatarView.setColors(t.card, t.line, 0xFF78AE90);
         }
@@ -1622,33 +1625,69 @@ public class MainActivity extends Activity {
         }
     }
 
-    private boolean isAccessibilityServiceEnabled() {
+    private String accessibilityComponentLong() {
+        return new ComponentName(this, ScreenshotService.class).flattenToString();
+    }
+
+    private String accessibilityComponentShort() {
+        return getPackageName() + "/." + ScreenshotService.class.getSimpleName();
+    }
+
+    private boolean matchesAccessibilityComponent(String raw) {
+        if (raw == null) return false;
+        String item = raw.trim();
+        if (item.length() == 0) return false;
+        String expectedLong = accessibilityComponentLong();
+        String expectedShort = accessibilityComponentShort();
+        return expectedLong.equalsIgnoreCase(item) || expectedShort.equalsIgnoreCase(item) || item.toLowerCase(Locale.ROOT).endsWith("/" + ScreenshotService.class.getName().toLowerCase(Locale.ROOT));
+    }
+
+    private boolean isAccessibilityServiceEnabledInSettings() {
         try {
             String enabled = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
             if (enabled == null || enabled.length() == 0) return false;
-            String expected = new ComponentName(this, ScreenshotService.class).flattenToString();
             TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
             splitter.setString(enabled);
             while (splitter.hasNext()) {
-                String item = splitter.next();
-                if (expected.equalsIgnoreCase(item)) return true;
+                if (matchesAccessibilityComponent(splitter.next())) return true;
             }
         } catch (Exception ignored) { }
         return false;
+    }
+
+    private boolean isAccessibilityServiceEnabledByManager() {
+        try {
+            AccessibilityManager manager = (AccessibilityManager) getSystemService(ACCESSIBILITY_SERVICE);
+            if (manager == null) return false;
+            List<AccessibilityServiceInfo> services = manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK);
+            if (services == null) return false;
+            for (AccessibilityServiceInfo info : services) {
+                if (info == null || info.getResolveInfo() == null || info.getResolveInfo().serviceInfo == null) continue;
+                String pkg = info.getResolveInfo().serviceInfo.packageName;
+                String cls = info.getResolveInfo().serviceInfo.name;
+                if (getPackageName().equals(pkg) && (ScreenshotService.class.getName().equals(cls) || cls.endsWith("." + ScreenshotService.class.getSimpleName()))) return true;
+            }
+        } catch (Exception ignored) { }
+        return false;
+    }
+
+    private boolean isAccessibilityServiceEnabled() {
+        return isAccessibilityServiceEnabledInSettings() || isAccessibilityServiceEnabledByManager();
     }
 
     private void openUsageAccessSettings() { try { startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)); } catch (Exception e) { Toast.makeText(this, "设置 → 应用 → 特殊权限 → 使用情况访问", Toast.LENGTH_LONG).show(); } }
     private void requestIgnoreBatteryOptimization() { if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return; try { PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE); if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) { Intent bi = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS); bi.setData(Uri.parse("package:" + getPackageName())); startActivity(bi); } } catch (Exception ignored) { } }
 
     private void updateUI() {
-        boolean accessibilityConnected = ScreenshotService.getInstance() != null;
-        boolean accessibilityOk = accessibilityConnected || isAccessibilityServiceEnabled();
+        boolean accessibilityEnabled = isAccessibilityServiceEnabled();
+        boolean accessibilityConnected = accessibilityEnabled && ScreenshotService.getInstance() != null;
+        boolean accessibilityOk = accessibilityEnabled;
         boolean usageOk = LifeState.hasUsagePermission(this);
         UITheme visualTheme = UITheme.current(this);
         updateHeader(currentTab);
         if (serviceRunning) { if (statusText != null) { statusText.setText(accessibilityOk ? "●  窗已打开 · 陪伴和守护都在" : "●  生活小窗已打开 · 无障碍待开启"); statusText.setTextColor(accessibilityOk ? visualTheme.primary : 0xFFCF8A62); } if (toggleButton != null) { toggleButton.setText("停止服务"); toggleButton.setBackgroundResource(R.drawable.pill_danger); } }
         else { if (statusText != null) { statusText.setText(accessibilityOk ? "○  感官已准备 · 服务等待开启" : "○  天气可用 · 无障碍待开启"); statusText.setTextColor(visualTheme.subtext); } if (toggleButton != null) { toggleButton.setText("启动服务"); toggleButton.setBackgroundResource(R.drawable.pill_primary); } }
-        if (accessibilityButton != null) accessibilityButton.setText(accessibilityOk ? (accessibilityConnected ? "无障碍权限：已开启" : "无障碍权限：已开启，等待连接") : "打开无障碍设置");
+        if (accessibilityButton != null) accessibilityButton.setText(accessibilityOk ? (accessibilityConnected ? "无障碍权限：已开启" : "无障碍权限：系统已开启，等待连接") : "打开无障碍设置");
         if (usageAccessButton != null) usageAccessButton.setText(usageOk ? "使用情况权限：已开启" : "打开使用情况访问权限");
         try {
             JSONObject s = LifeState.collect(this);
