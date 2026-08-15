@@ -91,7 +91,7 @@ Blueprint 会自动生成并共享：
    - Streamable HTTP：`https://你的-mcp-域名/mcp`
    - SSE：`https://你的-mcp-域名/sse`
 
-如果 MCP 健康检查显示 `LINJIAN_URL` 异常，手动把 `zhangxinchuang-mcp` 的环境变量 `LINJIAN_URL` 改成 `zhangxinchuang-server` 的公网地址，例如：
+如果 MCP 健康检查显示 `fetch failed` 或 `LINJIAN_URL` 异常，先检查 `zhangxinchuang-mcp` 的环境变量 `LINJIAN_URL`。公开部署推荐填写 `zhangxinchuang-server` 的公网 HTTPS 地址，例如：
 
 ```text
 https://zhangxinchuang-server.onrender.com

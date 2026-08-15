@@ -36,8 +36,7 @@ services:
     startCommand: npm start
     envVars:
       - fromGroup: zhangxinchuang-public-shared
+      # 不自动使用内部 hostport。部分环境下 MCP 无法通过该地址 fetch server。
+      # 部署完成后填写 server 的公网 HTTPS 地址。
       - key: LINJIAN_URL
-        fromService:
-          type: web
-          name: zhangxinchuang-server
-          property: hostport
+        sync: false
