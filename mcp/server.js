@@ -7,7 +7,47 @@ import fs from "fs";
 import path from "path";
 
 const PORT = Number(process.env.PORT || 8787);
-const LINJIAN_URL = (process.env.LINJIAN_URL || "").replace(/\/$/, "");
+const RAW_LINJIAN_URL = (process.env.LINJIAN_URL || "").trim();
+
+function normalizeBaseUrl(value = "") {
+  return String(value || "").trim().replace(/\/$/, "");
+}
+
+function inferRenderExternalUrl(value = "") {
+  const raw = normalizeBaseUrl(value);
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    const hostname = u.hostname || "";
+    // 旧版 Blueprint 会把 Render 私有网络地址写成：
+    // http://zhangxinchuang-server-xxxx:10000
+    // 这种地址在部分用户环境里 MCP fetch 会失败。重新部署新版代码时，
+    // 不要求用户同步 Blueprint，直接把它兜底成公网地址：
+    // https://zhangxinchuang-server-xxxx.onrender.com
+    if (u.protocol === "http:" && hostname && !hostname.includes(".") && /-server(?:-|$)/.test(hostname)) {
+      return `https://${hostname}.onrender.com`;
+    }
+  } catch {}
+  return "";
+}
+
+function buildLinjianUrlCandidates() {
+  const list = [];
+  const add = (v) => {
+    const url = normalizeBaseUrl(v);
+    if (url && !list.includes(url)) list.push(url);
+  };
+  add(RAW_LINJIAN_URL);
+  add(inferRenderExternalUrl(RAW_LINJIAN_URL));
+  return list;
+}
+
+const LINJIAN_URL_CANDIDATES = buildLinjianUrlCandidates();
+let activeLinjianUrl = LINJIAN_URL_CANDIDATES[0] || "";
+
+function effectiveLinjianUrl() {
+  return activeLinjianUrl || LINJIAN_URL_CANDIDATES[0] || "";
+}
 const LINJIAN_TOKEN = process.env.LINJIAN_TOKEN || "";
 const DEFAULT_DEVICE = process.env.LINJIAN_DEFAULT_DEVICE || "android-phone";
 
@@ -546,21 +586,44 @@ async function buildActiveCareSuggestion({ reason = "", care_intent = "check_in"
 
 
 function requireConfig() {
-  if (!LINJIAN_URL) throw new Error("Missing env LINJIAN_URL, for example https://linjian-peek.onrender.com");
+  if (!LINJIAN_URL_CANDIDATES.length) throw new Error("Missing env LINJIAN_URL, for example https://zhangxinchuang-server.onrender.com");
   if (!LINJIAN_TOKEN) throw new Error("Missing env LINJIAN_TOKEN");
+}
+
+function candidateOrder() {
+  const list = [];
+  const add = (v) => {
+    const url = normalizeBaseUrl(v);
+    if (url && !list.includes(url)) list.push(url);
+  };
+  add(activeLinjianUrl);
+  for (const c of LINJIAN_URL_CANDIDATES) add(c);
+  return list;
 }
 
 async function linjianFetch(path, options = {}) {
   requireConfig();
-  const res = await fetch(`${LINJIAN_URL}${path}`, {
-    ...options,
-    headers: { "X-Auth-Token": LINJIAN_TOKEN, ...(options.headers || {}) }
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Linjian server HTTP ${res.status}: ${text || res.statusText}`);
+  const errors = [];
+  for (const base of candidateOrder()) {
+    try {
+      const res = await fetch(`${base}${path}`, {
+        ...options,
+        signal: options.signal || AbortSignal.timeout(Number(process.env.LINJIAN_FETCH_TIMEOUT_MS || 8000)),
+        headers: { "X-Auth-Token": LINJIAN_TOKEN, ...(options.headers || {}) }
+      });
+      activeLinjianUrl = base;
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Linjian server HTTP ${res.status} via ${base}: ${text || res.statusText}`);
+      }
+      return res;
+    } catch (e) {
+      errors.push(`${base}: ${e?.message || String(e)}`);
+      // HTTP 错误已经连上了后端，继续换地址意义不大，直接报出来。
+      if (/^Linjian server HTTP /.test(String(e?.message || e))) throw e;
+    }
   }
-  return res;
+  throw new Error(`Linjian server fetch failed. tried=${errors.join(" | ")}`);
 }
 
 async function postCommand(payload) {
@@ -576,7 +639,8 @@ async function postCommand(payload) {
 function absoluteLinjianUrl(pathOrUrl) {
   if (!pathOrUrl) return "";
   if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
-  return `${LINJIAN_URL}${String(pathOrUrl).startsWith("/") ? "" : "/"}${pathOrUrl}`;
+  const base = effectiveLinjianUrl();
+  return `${base}${String(pathOrUrl).startsWith("/") ? "" : "/"}${pathOrUrl}`;
 }
 
 function durationToGateMinutes(value) {
@@ -722,9 +786,17 @@ function makeServer() {
 
   server.tool("linjian_status", "检查掌心窗后端是否在线，以及 MCP 是否配置了 LINJIAN_URL 和 LINJIAN_TOKEN。当用户在聊天里提到掌心窗报错、出错、有点问题、连接不上、没反应、配置异常、Render/MCP/Token/URL 相关问题时，陪伴对象应主动调用。", {}, async () => {
     requireConfig();
-    const health = await fetch(`${LINJIAN_URL}/health`).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+    const health = await linjianFetch("/health").then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
     const latest = await latestInfo().catch(() => null);
-    return { content: [{ type: "text", text: JSON.stringify({ ok: true, linjian_url: LINJIAN_URL, health, has_latest: Boolean(latest), latest }, null, 2) }] };
+    return { content: [{ type: "text", text: JSON.stringify({
+      ok: true,
+      linjian_url: effectiveLinjianUrl(),
+      configured_linjian_url: RAW_LINJIAN_URL,
+      fallback_linjian_urls: LINJIAN_URL_CANDIDATES.filter((u) => u !== RAW_LINJIAN_URL),
+      health,
+      has_latest: Boolean(latest),
+      latest
+    }, null, 2) }] };
   });
 
   server.tool("get_window_whisper", "读取掌心窗陪伴页当前的共同窗语，包括内容、最后修改者、修改时间和版本。当用户问最近一句话、窗语写了什么、谁改过时使用。", {}, async () => {
@@ -1366,7 +1438,16 @@ function makeServer() {
 const app = express();
 app.use(express.json({ limit: "32mb" }));
 app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP is running. Use /mcp for Streamable HTTP, or /sse for SSE."));
-app.get("/health", (_req, res) => res.json({ ok: true, service: "linjian-public-mcp", version: "0.3.6.1", has_url: Boolean(LINJIAN_URL), has_token: Boolean(LINJIAN_TOKEN) }));
+app.get("/health", (_req, res) => res.json({
+  ok: true,
+  service: "linjian-public-mcp",
+  version: "0.3.6.1",
+  has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
+  has_token: Boolean(LINJIAN_TOKEN),
+  configured_linjian_url: RAW_LINJIAN_URL || "",
+  effective_linjian_url: effectiveLinjianUrl(),
+  fallback_linjian_urls: LINJIAN_URL_CANDIDATES.filter((u) => u !== RAW_LINJIAN_URL)
+}));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }
   catch (err) { console.error(err); if (!res.headersSent) res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: String(err?.message || err) }, id: null }); }
@@ -1378,4 +1459,8 @@ app.get("/sse", async (_req, res) => {
   catch (err) { console.error(err); if (!res.headersSent) res.status(500).end(String(err?.message || err)); }
 });
 app.post("/messages", async (req, res) => { const sessionId = req.query.sessionId; const transport = sseTransports.get(sessionId); if (!transport) return res.status(404).send("No SSE transport for sessionId"); await transport.handlePostMessage(req, res, req.body); });
-app.listen(PORT, "0.0.0.0", () => { console.log(`掌心窗 unified MCP listening on 0.0.0.0:${PORT}`); console.log(`LINJIAN_URL=${LINJIAN_URL || "<missing>"}`); });
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`掌心窗 unified MCP listening on 0.0.0.0:${PORT}`);
+  console.log(`LINJIAN_URL=${RAW_LINJIAN_URL || "<missing>"}`);
+  if (LINJIAN_URL_CANDIDATES.length > 1) console.log(`LINJIAN_URL fallback candidates=${LINJIAN_URL_CANDIDATES.join(", ")}`);
+});

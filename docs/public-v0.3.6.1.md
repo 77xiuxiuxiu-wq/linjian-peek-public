@@ -10,3 +10,10 @@
 - README 补充 Render 一键部署、Railway 双服务部署、局域网部署和 MCP 工具说明。
 - 公开版只包含公开自部署所需的通用能力，不包含私人绑定接口。
 - 使用公开版专用固定签名和独立版本号 `0.3.6.1` / `30601`。
+
+
+## Render MCP 连接修正
+
+- MCP 的 `LINJIAN_URL` 改为自动引用 server 的公网 `RENDER_EXTERNAL_URL`。
+- 不再使用 Render 内网 `hostport`，避免部分环境下 `TypeError: fetch failed`。
+- 旧版用户更新代码后直接重新部署 MCP 即可；如果环境变量仍残留旧内网地址，新版 MCP 会自动兜底转换为 server 公网地址，不需要手动复制 URL。

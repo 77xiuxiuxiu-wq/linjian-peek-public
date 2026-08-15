@@ -28,6 +28,8 @@ LINJIAN_TOKEN=你的长随机token
 LINJIAN_DEFAULT_DEVICE=android-phone
 ```
 
+Render 一键部署时，`LINJIAN_URL` 会由 Blueprint 自动引用 server 的公网 `RENDER_EXTERNAL_URL`；旧版部署只重新部署 MCP 时，新版代码也会把旧内网 `hostport` 自动兜底为公网地址。手动部署或 Railway 部署时再按上面格式填写。
+
 ## 状态与截图
 
 - `linjian_status()`：检查 MCP 与后端连接状态，确认 `LINJIAN_URL` 和 `LINJIAN_TOKEN` 是否配置，并返回后端健康信息。

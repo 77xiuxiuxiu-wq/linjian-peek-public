@@ -78,6 +78,7 @@ Blueprint 会自动生成并共享：
 
 - `LINJIAN_TOKEN`：手机端、后端和 MCP 共同使用的访问令牌。
 - `LINJIAN_DEFAULT_DEVICE`：默认设备 ID，默认 `android-phone`。
+- `LINJIAN_URL`：MCP 自动引用 `zhangxinchuang-server` 的公网 HTTPS 地址，不需要手动填写。
 
 部署完成后：
 
@@ -91,11 +92,11 @@ Blueprint 会自动生成并共享：
    - Streamable HTTP：`https://你的-mcp-域名/mcp`
    - SSE：`https://你的-mcp-域名/sse`
 
-如果 MCP 健康检查显示 `fetch failed` 或 `LINJIAN_URL` 异常，先检查 `zhangxinchuang-mcp` 的环境变量 `LINJIAN_URL`。公开部署推荐填写 `zhangxinchuang-server` 的公网 HTTPS 地址，例如：
+如果你是从旧版 0.3.6.1 更新上来，**直接重新部署 MCP 服务即可**。新版 MCP 会兼容旧环境变量：即使 `LINJIAN_URL` 仍然是旧版自动写入的 `http://zhangxinchuang-server-xxxx:10000` 内网地址，也会自动兜底转换为 `https://zhangxinchuang-server-xxxx.onrender.com` 公网地址再连接。
 
-```text
-https://zhangxinchuang-server.onrender.com
-```
+如果你重新同步/刷新 Blueprint，新版会自动把 `LINJIAN_URL` 改为引用 server 的公网 `RENDER_EXTERNAL_URL`；如果你只点 **Redeploy**，也可以依靠新版 MCP 的兜底逻辑修复，不需要用户手动复制 URL。
+
+验证方式：打开 `zhangxinchuang-mcp` 的 `/health`，如果看到 `fallback_linjian_urls` 里出现 `https://...onrender.com`，说明旧内网地址兼容逻辑已经生效。
 
 ## Railway 一键部署
 
