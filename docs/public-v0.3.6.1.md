@@ -16,4 +16,5 @@
 
 - MCP 的 `LINJIAN_URL` 改为自动引用 server 的公网 `RENDER_EXTERNAL_URL`。
 - 不再使用 Render 内网 `hostport`，避免部分环境下 `TypeError: fetch failed`。
+- 修复 `list_known_apps` 仍引用旧 MCP URL 变量导致运行时报错的问题。
 - 旧版用户更新代码后直接重新部署 MCP 即可；如果环境变量仍残留旧内网地址，新版 MCP 会自动兜底转换为 server 公网地址，不需要手动复制 URL。

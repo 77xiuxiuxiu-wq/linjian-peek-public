@@ -785,14 +785,21 @@ function makeServer() {
   });
 
   server.tool("linjian_status", "检查掌心窗后端是否在线，以及 MCP 是否配置了 LINJIAN_URL 和 LINJIAN_TOKEN。当用户在聊天里提到掌心窗报错、出错、有点问题、连接不上、没反应、配置异常、Render/MCP/Token/URL 相关问题时，陪伴对象应主动调用。", {}, async () => {
-    requireConfig();
-    const health = await linjianFetch("/health").then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
-    const latest = await latestInfo().catch(() => null);
+    const configErrors = [];
+    if (!LINJIAN_URL_CANDIDATES.length) configErrors.push("Missing env LINJIAN_URL");
+    if (!LINJIAN_TOKEN) configErrors.push("Missing env LINJIAN_TOKEN");
+    const health = configErrors.length
+      ? { ok: false, error: configErrors.join("; ") }
+      : await linjianFetch("/health").then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+    const latest = configErrors.length ? null : await latestInfo().catch(() => null);
     return { content: [{ type: "text", text: JSON.stringify({
       ok: true,
       linjian_url: effectiveLinjianUrl(),
       configured_linjian_url: RAW_LINJIAN_URL,
       fallback_linjian_urls: LINJIAN_URL_CANDIDATES.filter((u) => u !== RAW_LINJIAN_URL),
+      has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
+      has_token: Boolean(LINJIAN_TOKEN),
+      config_errors: configErrors,
       health,
       has_latest: Boolean(latest),
       latest
@@ -1196,7 +1203,9 @@ function makeServer() {
   });
 
   server.tool("list_known_apps", "列出预置和用户保存的 App 包名，包括小红书、微信、QQ、抖音等通用应用。", {}, async () => {
-    const res = await fetch(`${LINJIAN_URL}/api/known_apps`).then((r) => r.json()).catch(() => ({ ok: true, apps: { "小红书": "com.xingin.xhs", "微信": "com.tencent.mm" } }));
+    const res = await linjianFetch("/api/known_apps")
+      .then((r) => r.json())
+      .catch(() => ({ ok: true, apps: { "小红书": "com.xingin.xhs", "微信": "com.tencent.mm", "QQ": "com.tencent.mobileqq", "抖音": "com.ss.android.ugc.aweme" } }));
     return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
   });
 
