@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""掌心窗公开版 v0.3.6.2 unified server.
+"""掌心窗公开版 v0.3.6.4 unified server.
 
 零依赖标准库版，负责：
 1. 给手机端下发 peek / open_app / back / home / recents / tap / swipe / set_alarm / send_notification 命令；
@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 DEFAULT_PORT = 8513
 DEFAULT_KEEP = 3
 MAX_UPLOAD_BYTES = 24 * 1024 * 1024
-VERSION = "0.3.6.2"
+VERSION = "0.3.6.4"
 DEFAULT_DEVICE = os.environ.get("LINJIAN_DEFAULT_DEVICE", "android-phone")
 ACTIVITY_EVENT_LIMIT = 500
 
@@ -416,10 +416,10 @@ class Handler(BaseHTTPRequestHandler):
                 "send_notification": "发送提醒", "set_alarm": "设置闹钟", "trigger_guidian": "发起归电",
                 "mark_guidian_returned": "记录归电回应", "get_guidian_state": "查看归电状态", "set_guidian_config": "调整归电设置",
                 "screen_off": "让手机息屏", "phone_screen_off": "让手机息屏", "open_app": "打开应用",
-                "screen_break_app": "开启应用门禁", "end_screen_break": "解除应用门禁", "extend_screen_break": "延长应用门禁",
-                "temporary_screen_break_release": "临时解除应用门禁", "deny_screen_break_release_request": "拒绝门禁解除",
-                "get_screen_break_state": "查看应用门禁状态", "list_screen_break_apps": "查看可管理应用",
-                "add_screen_break_app": "加入门禁管理", "set_screen_break_passphrase": "设置门禁口令",
+                "screen_break_app": "开启应用门禁", "lock_app": "开启应用门禁", "end_screen_break": "解除应用门禁", "unlock_app": "解除应用门禁", "extend_screen_break": "延长应用门禁", "extend_lock": "延长应用门禁",
+                "temporary_screen_break_release": "临时解除应用门禁", "temporary_unlock_app": "临时解除应用门禁", "deny_screen_break_release_request": "拒绝门禁解除", "deny_unlock_request": "拒绝门禁解除",
+                "get_screen_break_state": "查看应用门禁状态", "get_lock_state": "查看应用门禁状态", "list_screen_break_apps": "查看可管理应用", "list_lockable_apps": "查看可管理应用",
+                "add_screen_break_app": "加入门禁管理", "add_locked_app": "加入门禁管理", "remove_locked_app": "移除门禁应用", "set_screen_break_passphrase": "设置门禁口令", "set_emergency_passphrase": "设置门禁口令",
                 "get_calendar_state": "查看守护日历", "upsert_calendar_event": "更新守护日历",
                 "get_screen_nodes": "查看当前页面",
                 "peek": "查看屏幕", "run_sequence": "执行组合动作", "home": "回到手机桌面", "back": "返回上一页", "recents": "打开最近任务"

@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
         buildMagazinePages();
         loadSettings();
 
-        DebugState.append(this, "掌心窗公开版 v0.3.6.2 已打开");
+        DebugState.append(this, "掌心窗公开版 v0.3.6.4 已打开");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
@@ -593,7 +593,7 @@ public class MainActivity extends Activity {
         top.addView(spacer, weightedWrap(1f, 0));
         Button add = iconButton("＋", "添加日子");
         add.setTextSize(16);
-        add.setOnClickListener(v -> showFeaturePanel("添加一个日子", drawerCalendar));
+        add.setOnClickListener(v -> showCalendarEventDialog());
         top.addView(add, new LinearLayout.LayoutParams(dp(36), dp(32)));
         root.addView(top, marginBottom(6));
         root.addView(buildGuardianCalendarPage(), marginBottom(12));
@@ -1486,6 +1486,27 @@ public class MainActivity extends Activity {
     @Override protected void onPause() { uiHandler.removeCallbacks(refreshTick); super.onPause(); }
 
 
+    private JSONObject saveCalendarEventValues(String title, String date, String group, String note, boolean lunar, boolean repeat, boolean banner) {
+        title = title == null ? "" : title.trim();
+        date = date == null ? "" : date.trim();
+        group = group == null ? "" : group.trim();
+        note = note == null ? "" : note.trim();
+        if (group.isEmpty()) group = "our_days";
+        if (title.isEmpty() || date.isEmpty()) {
+            Toast.makeText(this, "先填标题和日期", Toast.LENGTH_SHORT).show();
+            JSONObject out = new JSONObject();
+            try { out.put("ok", false).put("error", "title_or_date_required"); } catch (Exception ignored) { }
+            return out;
+        }
+        JSONObject saved = CalendarState.upsertEvent(this, "", title, lunar ? "lunar" : "solar", date, 0, 0, false, repeat ? "yearly" : "none", group, note, 3, banner, "user");
+        boolean ok = saved.optBoolean("ok", false);
+        if (ok) CompanionWindowState.recordJourney(this, "添加守护日历", "记下「" + title + "」");
+        DebugState.append(this, ok ? ("已保存守护日历：" + title + " · " + date) : ("守护日历保存失败：" + saved.toString()));
+        Toast.makeText(this, ok ? "已保存到守护日历" : ("保存失败：" + saved.optString("error", "请检查日期")), Toast.LENGTH_LONG).show();
+        updateUI();
+        return saved;
+    }
+
     private void saveCalendarEvent() {
         String title = calendarTitleInput == null ? "" : calendarTitleInput.getText().toString().trim();
         String date = calendarDateInput == null ? "" : calendarDateInput.getText().toString().trim();
@@ -1494,18 +1515,56 @@ public class MainActivity extends Activity {
         boolean lunar = calendarLunarEnabled != null && calendarLunarEnabled.isChecked();
         boolean repeat = calendarRepeatEnabled == null || calendarRepeatEnabled.isChecked();
         boolean banner = calendarBannerEnabled == null || calendarBannerEnabled.isChecked();
-        if (title.isEmpty() || date.isEmpty()) { Toast.makeText(this, "先填标题和日期", Toast.LENGTH_SHORT).show(); return; }
-        JSONObject saved = CalendarState.upsertEvent(this, "", title, lunar ? "lunar" : "solar", date, 0, 0, false, repeat ? "yearly" : "none", group, note, 3, banner, "user");
-        boolean ok = saved.optBoolean("ok", false);
-        if (ok) CompanionWindowState.recordJourney(this, "添加守护日历", "记下「" + title + "」");
-        DebugState.append(this, ok ? ("已保存守护日历：" + title + " · " + date) : ("守护日历保存失败：" + saved.toString()));
-        Toast.makeText(this, ok ? "已保存到守护日历" : ("保存失败：" + saved.optString("error", "请检查日期")), Toast.LENGTH_LONG).show();
-        if (ok) {
+        JSONObject saved = saveCalendarEventValues(title, date, group, note, lunar, repeat, banner);
+        if (saved.optBoolean("ok", false)) {
             if (calendarTitleInput != null) calendarTitleInput.setText("");
             if (calendarDateInput != null) calendarDateInput.setText("");
             if (calendarNoteInput != null) calendarNoteInput.setText("");
         }
-        updateUI();
+    }
+
+    private void showCalendarEventDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(8), dp(2), dp(8), 0);
+        EditText titleInput = new EditText(this);
+        titleInput.setHint("标题，例如 生日 / 纪念日 / 项目节点");
+        titleInput.setSingleLine(true);
+        EditText dateInput = new EditText(this);
+        dateInput.setHint("阳历：2026-08-23 或 08-23；农历：07-07");
+        dateInput.setSingleLine(true);
+        EditText groupInput = new EditText(this);
+        groupInput.setHint("分组：我们的日子 / 用户 / 陪伴对象 / 节日 / 学习 / 项目 / 生活");
+        groupInput.setSingleLine(true);
+        EditText noteInput = new EditText(this);
+        noteInput.setHint("备注，可不填");
+        noteInput.setSingleLine(true);
+        CheckBox lunarInput = new CheckBox(this);
+        lunarInput.setText("农历日期");
+        CheckBox repeatInput = new CheckBox(this);
+        repeatInput.setText("每年重复"); repeatInput.setChecked(true);
+        CheckBox bannerInput = new CheckBox(this);
+        bannerInput.setText("提前三天横幅提醒"); bannerInput.setChecked(true);
+        box.addView(titleInput); box.addView(dateInput); box.addView(groupInput); box.addView(noteInput); box.addView(lunarInput); box.addView(repeatInput); box.addView(bannerInput);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("添加一个日子")
+                .setMessage("保存后会立刻写入本机守护日历，并同步更新日历页和陪伴页的下个纪念日。")
+                .setView(box)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存", null)
+                .create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            JSONObject saved = saveCalendarEventValues(
+                    titleInput.getText().toString(),
+                    dateInput.getText().toString(),
+                    groupInput.getText().toString(),
+                    noteInput.getText().toString(),
+                    lunarInput.isChecked(),
+                    repeatInput.isChecked(),
+                    bannerInput.isChecked());
+            if (saved.optBoolean("ok", false)) dialog.dismiss();
+        }));
+        dialog.show();
     }
 
     private void addWeatherLocation(boolean makeCurrent) {
@@ -1549,7 +1608,7 @@ public class MainActivity extends Activity {
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：公开版 v0.3.6.2 右侧 love 线稿花枝已启用"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：公开版 v0.3.6.4 右侧 love 线稿花枝已启用"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }

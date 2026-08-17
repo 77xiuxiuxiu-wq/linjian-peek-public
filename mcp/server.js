@@ -51,6 +51,16 @@ function effectiveLinjianUrl() {
 const LINJIAN_TOKEN = process.env.LINJIAN_TOKEN || "";
 const DEFAULT_DEVICE = process.env.LINJIAN_DEFAULT_DEVICE || "android-phone";
 
+// v0.3.6.4：公开 MCP 经常被平台限制在 20 秒内返回。
+// 状态读取、活动记录和命令轮询都要快速失败，避免整条工具链被 Render 冷启动、网络抖动或手机端确认弹窗拖到超时。
+const DEFAULT_FETCH_TIMEOUT_MS = Number(process.env.LINJIAN_FETCH_TIMEOUT_MS || 8000);
+const QUICK_FETCH_TIMEOUT_MS = Number(process.env.LINJIAN_QUICK_FETCH_TIMEOUT_MS || 4500);
+const ACTIVITY_TIMEOUT_MS = Number(process.env.LINJIAN_ACTIVITY_TIMEOUT_MS || 1800);
+const COMMAND_QUEUE_TIMEOUT_MS = Number(process.env.LINJIAN_COMMAND_QUEUE_TIMEOUT_MS || 4500);
+const COMMAND_STATUS_TIMEOUT_MS = Number(process.env.LINJIAN_COMMAND_STATUS_TIMEOUT_MS || 1500);
+const DEFAULT_COMMAND_WAIT_SECONDS = Number(process.env.LINJIAN_DEFAULT_COMMAND_WAIT_SECONDS || 5);
+const MAX_TOOL_WAIT_SECONDS = Number(process.env.LINJIAN_MAX_TOOL_WAIT_SECONDS || 12);
+
 const CARE_STATE_PATH = process.env.LINJIAN_CARE_STATE_PATH || path.join(process.cwd(), "care_state.json");
 const VISIT_STATE_PATH = process.env.LINJIAN_VISIT_STATE_PATH || path.join(process.cwd(), "visit_state.json");
 const DEFAULT_VISIT_POLICY = {
@@ -65,7 +75,7 @@ const DEFAULT_CARE_POLICY = {
   care_style: "active_possessive_affectionate",
   allowed_actions: [
     "get_phone_state", "get_life_state", "get_calendar_state", "upsert_calendar_event", "get_senses_state", "send_notification",
-    "trigger_guidian", "screen_break_app", "end_screen_break", "extend_screen_break", "open_app", "set_alarm", "screen_off", "run_sequence"
+    "trigger_guidian", "screen_break_app", "end_screen_break", "extend_screen_break", "get_screen_break_state", "get_lock_state", "open_app", "set_alarm", "screen_off", "run_sequence"
   ],
   sensitive_apps: [
     { name: "小红书", package: "com.xingin.xhs", max_lock_minutes: 90 },
@@ -82,6 +92,61 @@ function textResult(obj) {
   return { content: [{ type: "text", text: JSON.stringify(obj, null, 2) }] };
 }
 
+const KNOWN_APP_PACKAGES = {
+  "小红书": "com.xingin.xhs",
+  "xhs": "com.xingin.xhs",
+  "xiaohongshu": "com.xingin.xhs",
+  "抖音": "com.ss.android.ugc.aweme",
+  "douyin": "com.ss.android.ugc.aweme",
+  "微信": "com.tencent.mm",
+  "wechat": "com.tencent.mm",
+  "qq": "com.tencent.mobileqq",
+  "QQ": "com.tencent.mobileqq",
+  "QQ音乐": "com.tencent.qqmusic",
+  "qq音乐": "com.tencent.qqmusic",
+  "qqmusic": "com.tencent.qqmusic"
+};
+
+function looksLikePackage(value = "") {
+  return /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(String(value || "").trim());
+}
+
+function knownPackageForApp(app = "") {
+  const raw = String(app || "").trim();
+  if (!raw) return "";
+  if (KNOWN_APP_PACKAGES[raw]) return KNOWN_APP_PACKAGES[raw];
+  const lower = raw.toLowerCase();
+  return KNOWN_APP_PACKAGES[lower] || "";
+}
+
+function normalizeAppTarget(app = "", pkg = "") {
+  let cleanApp = String(app || "").trim();
+  let cleanPkg = String(pkg || "").trim();
+  if (!cleanPkg && looksLikePackage(cleanApp)) {
+    cleanPkg = cleanApp;
+    cleanApp = "";
+  }
+  if (!cleanPkg) cleanPkg = knownPackageForApp(cleanApp);
+  return { app: cleanApp, package: cleanPkg };
+}
+
+function missingAppTargetResult(action = "open_app") {
+  return textResult({
+    ok: false,
+    error: "missing_app_target",
+    action,
+    message: "缺少 App 名称或包名。请在工具参数里填写 app（如“小红书”）或 package（如 com.xingin.xhs），也可以先用 save_known_app 保存常用 App。",
+    examples: { app: "小红书", package: "com.xingin.xhs" }
+  });
+}
+
+const APP_TARGET_ACTIONS = new Set([
+  "open_app", "screen_break_app", "start_screen_break", "screen_break", "end_screen_break", "stop_screen_break",
+  "temporary_screen_break_release", "temporary_screen_release", "extend_screen_break", "deny_screen_break_release_request",
+  "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
+  "remove_screen_break_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase"
+]);
+
 const COMPANION_ACTION_META = {
   get_phone_state: ["观察", "查看手机状态", "确认生活状态与连接情况"],
   get_life_state: ["观察", "查看今日状态", "整理电量、屏幕时间与当前状态"],
@@ -90,7 +155,11 @@ const COMPANION_ACTION_META = {
   get_weather_state: ["观察", "查看天气", "为今天的出行准备建议"],
   get_guidian_state: ["观察", "查看归电状态", "确认最近回来与归电节奏"],
   get_senses_state: ["观察", "查看通用状态", "确认生活状态与归电节奏"],
-  get_screen_break_state: ["观察", "查看屏幕休息", "确认应用门禁与休息状态"],
+  get_screen_break_state: ["观察", "查看应用门禁状态", "确认应用门禁与休息状态"],
+  get_lock_state: ["观察", "查看应用门禁状态", "确认应用门禁与休息状态"],
+  lock_app: ["守护", "开启应用门禁", "让目标 App 暂停一会儿"],
+  unlock_app: ["守护", "解除应用门禁", "恢复目标 App 使用"],
+  extend_lock: ["守护", "延长应用门禁", "继续守住目标 App"],
   send_weather_notification: ["守护", "发送天气提醒", "把天气关心送到手机"],
   set_window_whisper: ["陪伴", "修改共同窗语", "更新了窗边的一句话"],
   send_notification: ["陪伴", "发送提醒", "把一句关心送到手机"],
@@ -109,6 +178,7 @@ async function postCompanionAction(toolName, overrides = {}) {
   try {
     const res = await linjianFetch("/api/companion/action", {
       method: "POST",
+      timeout_ms: ACTIVITY_TIMEOUT_MS,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: meta[0], title: meta[1], summary: meta[2], type: overrides.type || activityTypeForTool(toolName), action: overrides.action || toolName, status: "completed", dedupe_seconds: isStatusTool(toolName) ? 20 : 0, ...overrides })
     });
@@ -136,7 +206,7 @@ async function getCompanionState(limit = 20) {
 async function addActivityEvent(event = {}) {
   try {
     const res = await linjianFetch("/api/activity/events", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(event)
+      method: "POST", timeout_ms: ACTIVITY_TIMEOUT_MS, headers: { "Content-Type": "application/json" }, body: JSON.stringify(event)
     });
     return await res.json();
   } catch { return null; }
@@ -604,12 +674,14 @@ function candidateOrder() {
 async function linjianFetch(path, options = {}) {
   requireConfig();
   const errors = [];
+  const { timeout_ms, ...fetchOptions } = options || {};
+  const timeoutMs = Math.max(500, Number(timeout_ms || DEFAULT_FETCH_TIMEOUT_MS));
   for (const base of candidateOrder()) {
     try {
       const res = await fetch(`${base}${path}`, {
-        ...options,
-        signal: options.signal || AbortSignal.timeout(Number(process.env.LINJIAN_FETCH_TIMEOUT_MS || 8000)),
-        headers: { "X-Auth-Token": LINJIAN_TOKEN, ...(options.headers || {}) }
+        ...fetchOptions,
+        signal: fetchOptions.signal || AbortSignal.timeout(timeoutMs),
+        headers: { "X-Auth-Token": LINJIAN_TOKEN, ...(fetchOptions.headers || {}) }
       });
       activeLinjianUrl = base;
       if (!res.ok) {
@@ -629,6 +701,7 @@ async function linjianFetch(path, options = {}) {
 async function postCommand(payload) {
   const res = await linjianFetch("/api/command", {
     method: "POST",
+    timeout_ms: COMMAND_QUEUE_TIMEOUT_MS,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
@@ -653,8 +726,8 @@ function durationToGateMinutes(value) {
   return n;
 }
 
-async function commandStatus(id) {
-  const res = await linjianFetch(`/api/command/status?id=${encodeURIComponent(id)}`);
+async function commandStatus(id, timeoutMs = COMMAND_STATUS_TIMEOUT_MS) {
+  const res = await linjianFetch(`/api/command/status?id=${encodeURIComponent(id)}`, { timeout_ms: timeoutMs });
   return await res.json();
 }
 
@@ -693,12 +766,14 @@ async function fetchWeather(city) {
   return { ok: true, location: { name: hit.name, country: hit.country, admin1: hit.admin1, latitude: hit.latitude, longitude: hit.longitude }, current: data.current, daily: data.daily, source: "open-meteo" };
 }
 
-async function waitCommand(id, seconds = 8) {
-  const deadline = Date.now() + seconds * 1000;
+async function waitCommand(id, seconds = DEFAULT_COMMAND_WAIT_SECONDS) {
+  const waitSec = Math.max(0, Math.min(Number(seconds || 0), MAX_TOOL_WAIT_SECONDS));
+  const deadline = Date.now() + waitSec * 1000;
   let last = null;
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    last = await commandStatus(id).catch(() => last);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const remain = Math.max(500, Math.min(COMMAND_STATUS_TIMEOUT_MS, deadline - Date.now()));
+    last = await commandStatus(id, remain).catch(() => last);
     const status = last?.command?.status;
     if (status === "completed" || status === "failed") return last;
   }
@@ -723,14 +798,15 @@ async function fetchLatestImage() {
 }
 
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.6.2" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.6.4" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
     "set_guidian_config", "send_weather_notification", "send_phone_command", "open_app", "phone_home", "phone_back", "phone_recents",
     "phone_screen_off", "send_notification", "set_alarm", "run_sequence", "run_preset", "save_known_app", "screen_break_app",
     "temporary_screen_break_release", "end_screen_break", "extend_screen_break", "deny_screen_break_release_request",
-    "get_screen_break_state", "list_screen_break_apps", "add_screen_break_app", "set_screen_break_passphrase"
+    "get_screen_break_state", "get_lock_state", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
+    "list_screen_break_apps", "list_lockable_apps", "add_screen_break_app", "add_locked_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase"
   ]);
   const originalTool = server.tool.bind(server);
   server.tool = (...args) => {
@@ -836,11 +912,16 @@ function makeServer() {
     app_name: z.string().default(""), package_name: z.string().default(""), action: z.string().default(""), status: z.string().default("completed"), metadata_json: z.any().optional()
   }, async (event) => textResult(await addActivityEvent(event) || { ok: false, error: "activity_event_write_failed" }));
 
-  server.tool("get_phone_state", "用于陪伴对象主动确认用户当前现实状态。读取手机最近状态，返回 current_package、screen_text、accessibility_ready；这是查岗和关心入口，不只是技术诊断。当用户说“看得到嘛”“你看得到吗”“你看看我现在在哪”“查一下手机状态”“手机现在怎么样”或类似表达时，陪伴对象应主动调用。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
-    const res = await linjianFetch(`/api/device/state?device_id=${encodeURIComponent(device_id)}`);
-    const data = await res.json();
-    await postCompanionAction("get_phone_state");
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  server.tool("get_phone_state", "用于陪伴对象主动确认用户当前现实状态。读取服务器缓存的最近手机状态，快速返回 current_package、screen_text、accessibility_ready；不会等待手机实时刷新，避免 20 秒工具超时。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
+    try {
+      const res = await linjianFetch(`/api/device/state?device_id=${encodeURIComponent(device_id)}`, { timeout_ms: QUICK_FETCH_TIMEOUT_MS });
+      const data = await res.json();
+      // 状态读取不能被活动日志拖慢；记录失败不影响本次结果。
+      postCompanionAction("get_phone_state", { device_id }).catch(() => null);
+      return textResult({ ...data, mcp_note: "已快速读取服务器缓存状态；如果 state/life_state 为 null，请保持掌心窗前台或允许后台运行后重试。" });
+    } catch (error) {
+      return textResult({ ok: false, error: "phone_state_fetch_failed", message: "读取手机状态超时或后端暂时不可达；请确认 Render 服务已唤醒、MCP URL/Token 正确、掌心窗允许后台运行。", detail: String(error?.message || error).slice(0, 500) });
+    }
   });
 
 
@@ -1203,7 +1284,7 @@ function makeServer() {
   });
 
   server.tool("list_known_apps", "列出预置和用户保存的 App 包名，包括小红书、微信、QQ、抖音等通用应用。", {}, async () => {
-    const res = await linjianFetch("/api/known_apps")
+    const res = await linjianFetch("/api/known_apps", { timeout_ms: QUICK_FETCH_TIMEOUT_MS })
       .then((r) => r.json())
       .catch(() => ({ ok: true, apps: { "小红书": "com.xingin.xhs", "微信": "com.tencent.mm", "QQ": "com.tencent.mobileqq", "抖音": "com.ss.android.ugc.aweme" } }));
     return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
@@ -1233,17 +1314,25 @@ function makeServer() {
       if (!(Number(outgoing.minutes || 0) > 0)) delete outgoing.minutes;
       if (!(Number(outgoing.duration_minutes || 0) > 0)) delete outgoing.duration_minutes;
     }
+    if (APP_TARGET_ACTIONS.has(action)) {
+      const target = normalizeAppTarget(outgoing.app, outgoing.package);
+      outgoing.app = target.app;
+      outgoing.package = target.package;
+      if (!target.app && !target.package) return missingAppTargetResult(action);
+    }
     const result = await postCommand({ ...outgoing, payload: outgoing });
-    return { content: [{ type: "text", text: JSON.stringify({ ...result, safety_note: "命令已排队，手机执行器下一次轮询时执行。" }, null, 2) }] };
+    return { content: [{ type: "text", text: JSON.stringify({ ...result, safety_note: "命令已排队，手机执行器下一次轮询时执行。若需要实时确认结果，请稍后读取命令状态或查看掌心窗调试日志。" }, null, 2) }] };
   });
 
-  server.tool("open_app", "打开指定 App。app 可填用户保存的应用昵称，或直接传 package。当用户明确要求打开或前往某个 App 时使用；若只是闲聊提到 App，不必每次打开。会等待几秒查看手机是否回传执行结果。", { app: z.string().default(""), package: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE) }, async ({ app = "", package: pkg = "", device_id = DEFAULT_DEVICE }) => {
-    const result = await postCommand({ action: "open_app", app, package: pkg, device_id });
+  server.tool("open_app", "打开指定 App。app 可填用户保存的应用昵称，或直接传 package。当用户明确要求打开或前往某个 App 时使用；若只是闲聊提到 App，不必每次打开。参数为空时会直接提示，不再下发 package_empty。", { app: z.string().default(""), package: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE) }, async ({ app = "", package: pkg = "", device_id = DEFAULT_DEVICE }) => {
+    const target = normalizeAppTarget(app, pkg);
+    if (!target.app && !target.package) return missingAppTargetResult("open_app");
+    const result = await postCommand({ action: "open_app", app: target.app, package: target.package, device_id, payload: { app: target.app, package: target.package } });
     const id = result?.command?.id;
-    if (!id) return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    const observed = await waitCommand(id, 8);
-    await postCompanionAction("open_app", { summary: `打开了${app || "指定应用"}` });
-    return { content: [{ type: "text", text: JSON.stringify({ ...result, observed_status: observed?.command || null, note: "若 observed_status 仍是 pending/dispatched，说明手机端尚未回传；可稍后查 command/status 或看调试日志。" }, null, 2) }] };
+    if (!id) return textResult(result);
+    const observed = await waitCommand(id, DEFAULT_COMMAND_WAIT_SECONDS);
+    postCompanionAction("open_app", { summary: `打开了${target.app || target.package || "指定应用"}` }).catch(() => null);
+    return textResult({ ...result, observed_status: observed?.command || null, note: "命令已排队。若 observed_status 仍是 pending/dispatched，说明手机端尚未回传；可稍后查看掌心窗调试日志。" });
   });
 
   server.tool("phone_home", "让手机回到桌面。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => ({ content: [{ type: "text", text: JSON.stringify(await postCommand({ action: "home", device_id }), null, 2) }] }));
@@ -1364,11 +1453,19 @@ function makeServer() {
   });
 
 
-  async function gateCommand(payload, wait_seconds = 8) {
+  async function gateCommand(payload, wait_seconds = DEFAULT_COMMAND_WAIT_SECONDS) {
+    const action = String(payload?.action || "").toLowerCase();
+    if (APP_TARGET_ACTIONS.has(action)) {
+      const target = normalizeAppTarget(payload.app, payload.package);
+      payload.app = target.app;
+      payload.package = target.package;
+      payload.payload = { ...(payload.payload || {}), app: target.app, package: target.package };
+      if (!target.app && !target.package) return missingAppTargetResult(action);
+    }
     const result = await postCommand(payload);
     const id = result?.command?.id;
-    const observed = id ? await waitCommand(id, wait_seconds) : null;
-    return { content: [{ type: "text", text: JSON.stringify({ queued: result, observed_status: observed?.command || null }, null, 2) }] };
+    const observed = id && Number(wait_seconds || 0) > 0 ? await waitCommand(id, wait_seconds) : null;
+    return textResult({ queued: result, observed_status: observed?.command || null, note: "命令已排队；为避免平台 20 秒工具超时，未等到手机回传时会先返回。" });
   }
 
   server.tool("screen_break_app", "屏幕休息：让指定 App 暂停一段时间。适合小红书/抖音等容易一刷很久的入口；当用户刷太久、眼睛酸还想继续、说“我就不/不要你管/还没玩够/继续看”等嘴硬或拖延表达时可调用。必须有时长，到点自动恢复；语气是照顾和带回，不是惩罚。", {
@@ -1423,6 +1520,78 @@ function makeServer() {
     return response;
   });
 
+  server.tool("get_lock_state", "应用门禁：读取当前门禁状态、可管理 App、日志和恢复申请。兼容旧版工具名；等同 get_screen_break_state。", {
+    device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const response = await gateCommand({ action: "get_lock_state", device_id }, wait_seconds);
+    await postCompanionAction("get_lock_state", { device_id });
+    return response;
+  });
+
+  server.tool("lock_app", "应用门禁：旧版兼容工具名。锁定/暂停指定 App 一段时间，等同 screen_break_app。", {
+    app: z.string().default(""),
+    package: z.string().default(""),
+    duration_minutes: z.number().min(0.1).max(10080).default(30),
+    mode: z.string().default("medium"),
+    reason: z.string().default("陪伴对象先把这扇门关一会儿。"),
+    message: z.string().default("先回来找我，不准一个人刷太久。"),
+    emergency_passphrase: z.string().default(""),
+    emergency_unlock_minutes: z.number().int().min(1).max(60).default(5),
+    device_id: z.string().default(DEFAULT_DEVICE),
+    wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", duration_minutes = 30, mode = "medium", reason, message, emergency_passphrase = "", emergency_unlock_minutes = 5, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const locked_until_ms = Date.now() + Math.round(duration_minutes * 60000);
+    const response = await gateCommand({ action: "lock_app", app, package: pkg, device_id, locked_until_ms, duration_minutes, mode, reason, message, emergency_passphrase, emergencyPassphrase: emergency_passphrase, emergency_unlock_minutes, emergencyUnlockMinutes: emergency_unlock_minutes, payload: { app, package: pkg, locked_until_ms, duration_minutes, mode, reason, message, emergency_passphrase, emergencyPassphrase: emergency_passphrase, emergency_unlock_minutes, emergencyUnlockMinutes: emergency_unlock_minutes } }, wait_seconds);
+    await postCompanionAction("lock_app", { summary: `为${app || "指定应用"}安排了 ${duration_minutes} 分钟门禁` });
+    return response;
+  });
+
+  server.tool("unlock_app", "应用门禁：旧版兼容工具名。结束某个 App 当前门禁，等同 end_screen_break。", {
+    app: z.string().default(""), package: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const response = await gateCommand({ action: "unlock_app", app, package: pkg, device_id, payload: { app, package: pkg } }, wait_seconds);
+    await postCompanionAction("unlock_app", { summary: `解除${app || "指定应用"}的门禁` });
+    return response;
+  });
+
+  server.tool("temporary_unlock_app", "应用门禁：旧版兼容工具名。临时放行一个正在门禁中的 App。", {
+    app: z.string().default(""), package: z.string().default(""),
+    minutes: z.number().min(0.1).max(240).default(10),
+    allow_type: z.string().default("real_time"),
+    max_window_minutes: z.number().min(1).max(480).default(30),
+    device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", minutes = 10, allow_type = "real_time", max_window_minutes = 30, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    return gateCommand({ action: "temporary_unlock_app", app, package: pkg, device_id, minutes, allowed_minutes: minutes, allow_type, max_window_minutes, payload: { app, package: pkg, minutes, allowed_minutes: minutes, allow_type, max_window_minutes } }, wait_seconds);
+  });
+
+  server.tool("extend_lock", "应用门禁：旧版兼容工具名。延长某个 App 的门禁时间。", {
+    app: z.string().default(""), package: z.string().default(""), minutes: z.number().min(0.1).max(1440).default(10), reason: z.string().default(""), message: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", minutes = 10, reason = "", message = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const response = await gateCommand({ action: "extend_lock", app, package: pkg, device_id, minutes, duration_minutes: minutes, reason, message, payload: { app, package: pkg, minutes, duration_minutes: minutes, reason, message } }, wait_seconds);
+    await postCompanionAction("extend_lock", { summary: `延长了${app || "指定应用"}的门禁` });
+    return response;
+  });
+
+  server.tool("deny_unlock_request", "应用门禁：旧版兼容工具名。拒绝这次恢复申请。", {
+    app: z.string().default(""), package: z.string().default(""), message: z.string().default("这次先不放行，回来找陪伴对象。"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", message = "这次先不放行，回来找陪伴对象。", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "deny_unlock_request", app, package: pkg, device_id, message, payload: { app, package: pkg, message } }, wait_seconds));
+
+  server.tool("list_lockable_apps", "应用门禁：旧版兼容工具名。列出可作为门禁对象的已安装 App。", {
+    max: z.number().int().min(10).max(200).default(80), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ max = 80, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "list_lockable_apps", max, device_id, payload: { max } }, wait_seconds));
+
+  server.tool("add_locked_app", "应用门禁：旧版兼容工具名。把一个 App 加到可管理名单。", {
+    alias: z.string(), package: z.string(), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ alias, package: pkg, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "add_locked_app", app: alias, alias, package: pkg, device_id, payload: { alias, app: alias, package: pkg } }, wait_seconds));
+
+  server.tool("remove_locked_app", "应用门禁：旧版兼容工具名。把一个 App 从可管理名单移除。", {
+    app: z.string().default(""), package: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "remove_locked_app", app, package: pkg, device_id, payload: { app, package: pkg } }, wait_seconds));
+
+  server.tool("set_emergency_passphrase", "应用门禁：旧版兼容工具名。为某个 App 当前门禁设置/更新紧急口令。", {
+    app: z.string().default(""), package: z.string().default(""), passphrase: z.string(), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
+  }, async ({ app = "", package: pkg = "", passphrase, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "set_emergency_passphrase", app, package: pkg, device_id, passphrase, emergency_passphrase: passphrase, emergencyPassphrase: passphrase, payload: { app, package: pkg, passphrase, emergency_passphrase: passphrase, emergencyPassphrase: passphrase } }, wait_seconds));
+
   server.tool("list_screen_break_apps", "屏幕休息：让手机列出可作为屏幕休息对象的已安装 App，排除电话、设置、掌心窗和已配置陪伴目标应用等保护项。", {
     max: z.number().int().min(10).max(200).default(80), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8)
   }, async ({ max = 80, device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => gateCommand({ action: "list_screen_break_apps", max, device_id, payload: { max } }, wait_seconds));
@@ -1450,7 +1619,7 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.6.2",
+  version: "0.3.6.4",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",

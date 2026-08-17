@@ -17,7 +17,7 @@ import java.util.Locale;
 
 /** 守护日历：纪念日、节日、倒数日、提前三天横幅提醒，并接入生活状态层。 */
 public class CalendarState {
-    public static final String VERSION = "0.3.6.2";
+    public static final String VERSION = "0.3.6.4";
     public static final String KEY_EVENTS = "guard_calendar_events_json";
     public static final String THEME_COLOR = "#B8A8D8";
     public static final int DEFAULT_REMIND_DAYS = 3;
@@ -57,18 +57,26 @@ public class CalendarState {
         try {
             List<Occurrence> occ = occurrences(ctx, false);
             JSONArray nearest = new JSONArray();
+            JSONArray upcoming = new JSONArray();
             JSONArray banners = new JSONArray();
             for (Occurrence x : occ) {
-                if (nearest.length() < 3) nearest.put(x.toJson());
-                if (x.bannerEnabled && x.daysLeft >= 0 && x.daysLeft <= Math.max(0, x.remindDays)) banners.put(x.toJson());
+                JSONObject item = x.toJson();
+                if (nearest.length() < 3) nearest.put(item);
+                if (upcoming.length() < 12) upcoming.put(item);
+                if (x.bannerEnabled && x.daysLeft >= 0 && x.daysLeft <= Math.max(0, x.remindDays)) banners.put(item);
             }
+            JSONArray customEvents = events(ctx);
             o.put("enabled", true);
             o.put("version", VERSION);
             o.put("theme_color", THEME_COLOR);
             o.put("default_remind_days_before", DEFAULT_REMIND_DAYS);
-            o.put("event_count", events(ctx).length());
+            o.put("event_count", customEvents.length());
+            o.put("custom_event_count", customEvents.length());
             o.put("nearest", nearest);
+            o.put("upcoming", upcoming);
             o.put("active_banners", banners);
+            o.put("custom_events", customEvents);
+            o.put("events", customEvents);
             o.put("summary", summaryLine(ctx));
         } catch (Exception e) {
             try { o.put("error", ScreenshotService.shortMsg(e)); } catch (Exception ignored) { }
@@ -174,12 +182,12 @@ public class CalendarState {
                 JSONObject saved = upsertEvent(ctx,
                         cmd.optString("id", ""),
                         cmd.optString("title", ""),
-                        cmd.optString("date_type", cmd.optBoolean("lunar", false) ? TYPE_LUNAR : TYPE_SOLAR),
-                        cmd.optString("date", cmd.optString("solar_date", "")),
-                        cmd.optInt("lunar_month", 0),
-                        cmd.optInt("lunar_day", 0),
-                        cmd.optBoolean("lunar_is_leap", false),
-                        cmd.optString("repeat_type", cmd.optBoolean("repeat", true) ? REPEAT_YEARLY : REPEAT_NONE),
+                        normalizeDateType(cmd.optString("date_type", cmd.optBoolean("lunar", false) ? TYPE_LUNAR : TYPE_SOLAR)),
+                        firstNonEmpty(cmd.optString("date", ""), cmd.optString("solar_date", ""), cmd.optString("date_text", "")),
+                        firstPositive(cmd.optInt("lunar_month", 0), cmd.optInt("month", 0)),
+                        firstPositive(cmd.optInt("lunar_day", 0), cmd.optInt("day", 0)),
+                        cmd.optBoolean("lunar_is_leap", cmd.optBoolean("leap", false)),
+                        normalizeRepeatType(cmd.optString("repeat_type", cmd.optBoolean("repeat", true) ? REPEAT_YEARLY : REPEAT_NONE)),
                         cmd.optString("group", "our_days"),
                         cmd.optString("note", ""),
                         cmd.optInt("remind_days_before", DEFAULT_REMIND_DAYS),
@@ -204,8 +212,9 @@ public class CalendarState {
         try {
             title = safe(title);
             if (title.length() == 0) return out.put("ok", false).put("error", "title_required");
-            dateType = TYPE_LUNAR.equals(dateType) ? TYPE_LUNAR : TYPE_SOLAR;
-            repeatType = REPEAT_NONE.equals(repeatType) ? REPEAT_NONE : REPEAT_YEARLY;
+            dateType = normalizeDateType(dateType);
+            repeatType = normalizeRepeatType(repeatType);
+            date = safe(date);
             group = normalizeGroup(group);
             JSONObject e = new JSONObject();
             if (id == null || id.trim().isEmpty()) id = "cal_" + System.currentTimeMillis();
@@ -236,12 +245,16 @@ public class CalendarState {
             }
             JSONArray arr = events(ctx);
             boolean replaced = false;
+            String newKey = eventIdentityKey(e);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject old = arr.optJSONObject(i);
-                if (old != null && id.equals(old.optString("id", ""))) { arr.put(i, e); replaced = true; break; }
+                if (old == null) continue;
+                boolean sameId = id.equals(old.optString("id", ""));
+                boolean sameEvent = !sameId && newKey.length() > 0 && newKey.equals(eventIdentityKey(old));
+                if (sameId || sameEvent) { arr.put(i, e); replaced = true; break; }
             }
             if (!replaced) arr.put(e);
-            saveEvents(ctx, arr);
+            if (!saveEvents(ctx, arr)) return out.put("ok", false).put("error", "save_failed");
             out.put("ok", true).put("event", e).put("calendar_state", collect(ctx));
         } catch (Exception ex) {
             try { out.put("ok", false).put("error", ScreenshotService.shortMsg(ex)); } catch (Exception ignored) { }
@@ -259,8 +272,8 @@ public class CalendarState {
                 if (e != null && id != null && id.equals(e.optString("id", ""))) { found = true; continue; }
                 if (e != null) next.put(e);
             }
-            if (found) saveEvents(ctx, next);
-            return found;
+            if (found) return saveEvents(ctx, next);
+            return false;
         } catch (Exception e) { return false; }
     }
 
@@ -272,8 +285,8 @@ public class CalendarState {
         } catch (Exception e) { return new JSONArray(); }
     }
 
-    private static void saveEvents(Context ctx, JSONArray arr) {
-        AppPrefs.get(ctx).edit().putString(KEY_EVENTS, arr.toString()).apply();
+    private static boolean saveEvents(Context ctx, JSONArray arr) {
+        return AppPrefs.get(ctx).edit().putString(KEY_EVENTS, arr.toString()).commit();
     }
 
     private static List<Occurrence> occurrences(Context ctx, boolean includeExpired) {
@@ -400,10 +413,38 @@ public class CalendarState {
     private static String pad2(int n) { return n < 10 ? "0" + n : String.valueOf(n); }
     private static String safe(String s) { return s == null ? "" : s.trim(); }
     private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }
+    private static String firstNonEmpty(String... values) {
+        if (values == null) return "";
+        for (String v : values) { String s = safe(v); if (s.length() > 0) return s; }
+        return "";
+    }
+    private static int firstPositive(int... values) {
+        if (values == null) return 0;
+        for (int v : values) if (v > 0) return v;
+        return 0;
+    }
+    private static String normalizeDateType(String value) {
+        String v = safe(value).toLowerCase(Locale.US);
+        if (TYPE_LUNAR.equals(v) || "农历".equals(value) || "阴历".equals(value) || "lunar_date".equals(v)) return TYPE_LUNAR;
+        return TYPE_SOLAR;
+    }
+    private static String normalizeRepeatType(String value) {
+        String v = safe(value).toLowerCase(Locale.US);
+        if (REPEAT_NONE.equals(v) || "once".equals(v) || "no".equals(v) || "false".equals(v) || "不重复".equals(value) || "仅一次".equals(value) || "一次".equals(value)) return REPEAT_NONE;
+        return REPEAT_YEARLY;
+    }
+    private static String eventIdentityKey(JSONObject e) {
+        if (e == null) return "";
+        String title = safe(e.optString("title", ""));
+        String type = normalizeDateType(e.optString("date_type", TYPE_SOLAR));
+        String date = TYPE_LUNAR.equals(type) ? (pad2(e.optInt("lunar_month", 0)) + "-" + pad2(e.optInt("lunar_day", 0))) : safe(e.optString("solar_date", e.optString("date", "")));
+        if (title.length() == 0 || date.length() == 0) return "";
+        return title + "|" + type + "|" + date;
+    }
     private static String normalizeGroup(String g) {
         g = safe(g);
         if (g.length() == 0) return "our_days";
-        if ("我们的日子".equals(g)) return "our_days"; if ("我的日子".equals(g)) return "user"; if ("陪伴对象".equals(g)) return "companion"; if ("节日".equals(g)) return "festival"; if ("学习".equals(g) || "考试".equals(g)) return "study"; if ("项目".equals(g)) return "project"; if ("生活".equals(g)) return "life";
+        if ("我们的日子".equals(g) || "我们".equals(g) || "纪念日".equals(g)) return "our_days"; if ("我的日子".equals(g) || "用户".equals(g) || "我".equals(g) || "自己".equals(g)) return "user"; if ("陪伴对象".equals(g) || "AI".equalsIgnoreCase(g) || "伴侣".equals(g)) return "companion"; if ("节日".equals(g)) return "festival"; if ("学习".equals(g) || "考试".equals(g)) return "study"; if ("项目".equals(g)) return "project"; if ("生活".equals(g)) return "life";
         return g.matches("[A-Za-z0-9_]+") ? g : "our_days";
     }
     private static String groupLabel(String g) {

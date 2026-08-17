@@ -1,4 +1,15 @@
-# 掌心窗公开版 v0.3.6.2
+# 掌心窗公开版 v0.3.6.4
+
+## v0.3.6.4 修复重点
+
+- 修复 MCP 状态读取容易超过 20 秒的问题：`get_phone_state` 改为快速读取服务器缓存，不再被活动日志记录或长轮询拖慢。
+- 缩短 MCP 到后端、命令排队和命令状态查询的默认等待时间，避免 Render 冷启动/网络波动时整条工具链卡死。
+- `open_app` / 门禁类工具增加空参数拦截：缺少 App 名称或包名时直接返回明确错误，不再下发到手机端形成 `package_empty`。
+- 增加常用 App 名称到包名的 MCP 侧兜底映射，例如小红书、抖音、微信、QQ、QQ音乐。
+- 保留 v0.3.6.3 的守护日历保存修复与应用门禁旧版工具名兼容。
+- 清理公开包里的 `server/.env` 与 `__pycache__`，只保留 `.env.example`。
+- 固定签名保持不变，可覆盖安装上一版公开版。
+
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/linzhi-524/linjian-peek-public)
 
@@ -45,15 +56,15 @@ update.json   版本更新信息
 
 1. 将源码包解压并覆盖到公开仓库根目录，确保 `.github`、`android`、`server`、`mcp` 位于根目录。
 2. 打开 GitHub 仓库 → **Actions** → **Build Android Public APK** → **Run workflow**。
-3. 构建成功后下载 `zhangxinchuang-public-v0.3.6.2-apk` artifact。
+3. 构建成功后下载 `zhangxinchuang-public-v0.3.6.4-apk` artifact。
 
 构建产物为：
 
 ```text
-android/Zhangxinchuang-public-v0.3.6.2.apk
+android/Zhangxinchuang-public-v0.3.6.4.apk
 ```
 
-版本名 `0.3.6.2`，版本码 `30602`。
+版本名 `0.3.6.4`，版本码 `30604`。
 
 ### 固定签名
 
@@ -92,7 +103,7 @@ Blueprint 会自动生成并共享：
    - Streamable HTTP：`https://你的-mcp-域名/mcp`
    - SSE：`https://你的-mcp-域名/sse`
 
-如果你是从旧版 0.3.6.2 更新上来，**直接重新部署 MCP 服务即可**。新版 MCP 会兼容旧环境变量：即使 `LINJIAN_URL` 仍然是旧版自动写入的 `http://zhangxinchuang-server-xxxx:10000` 内网地址，也会自动兜底转换为 `https://zhangxinchuang-server-xxxx.onrender.com` 公网地址再连接。
+如果你是从旧版 0.3.6.3 更新上来，**直接重新部署 MCP 服务即可**。新版 MCP 会兼容旧环境变量：即使 `LINJIAN_URL` 仍然是旧版自动写入的 `http://zhangxinchuang-server-xxxx:10000` 内网地址，也会自动兜底转换为 `https://zhangxinchuang-server-xxxx.onrender.com` 公网地址再连接。
 
 如果你重新同步/刷新 Blueprint，新版会自动把 `LINJIAN_URL` 改为引用 server 的公网 `RENDER_EXTERNAL_URL`；如果你只点 **Redeploy**，也可以依靠新版 MCP 的兜底逻辑修复，不需要用户手动复制 URL。
 
@@ -348,4 +359,4 @@ MCP 详细工具说明见 [docs/mcp.md](docs/mcp.md)。常用工具分组如下�
 
 许可条款见 [LICENSE](LICENSE)。
 
-> v0.3.6.2 补充：无障碍状态会在从系统设置返回后延迟复查多次，并兼容不同系统写入无障碍组件名的格式差异；如果侧载 APK 被系统拦截，App 会提示去“应用信息 → 允许受限设置”，再回无障碍开启“掌心窗服务”。
+> v0.3.6.4 补充：无障碍状态会在从系统设置返回后延迟复查多次，并兼容不同系统写入无障碍组件名的格式差异；如果侧载 APK 被系统拦截，App 会提示去“应用信息 → 允许受限设置”，再回无障碍开启“掌心窗服务”。

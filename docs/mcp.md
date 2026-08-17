@@ -1,4 +1,4 @@
-# MCP 工具清单（v0.3.6.2-public）
+# MCP 工具清单（v0.3.6.4-public）
 
 掌心窗 MCP 服务把手机端能力暴露给支持 MCP 的客户端。所有工具都需要你自己的 `LINJIAN_TOKEN`，并且手机端需要保持服务启动。公开版工具只保留通用能力，不包含私人绑定接口、私人 Token、私人服务地址或固定私人关系。
 
@@ -133,3 +133,15 @@ Render 一键部署时，`LINJIAN_URL` 会由 Blueprint 自动引用 server 的�
 - 不要把 Token 发给陌生客户端。
 - 自动发送评论、自动点击和输入建议默认手动确认。
 - 公开版不包含私人 Token、私人服务地址、固定私人关系和不可公开的专属接口。
+
+## v0.3.6.4 应用门禁兼容工具名
+
+为避免部分 AI 平台读取到 `/health` 动作清单后调用旧动作名时报 `Tool not found`，MCP 额外暴露以下兼容工具：
+
+- `get_lock_state`：等同 `get_screen_break_state`，读取应用门禁状态。
+- `lock_app`：等同 `screen_break_app`，开启应用门禁。
+- `unlock_app`：等同 `end_screen_break`，解除应用门禁。
+- `temporary_unlock_app`：等同 `temporary_screen_break_release`，临时放行。
+- `extend_lock`：等同 `extend_screen_break`，延长门禁。
+- `deny_unlock_request`：等同 `deny_screen_break_release_request`，拒绝恢复申请。
+- `list_lockable_apps`、`add_locked_app`、`remove_locked_app`、`set_emergency_passphrase`：旧版命名兼容。
