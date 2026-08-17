@@ -1,13 +1,15 @@
 {
-  "latest_version_name": "0.3.5.1",
-  "latest_version_code": 30501,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.5.1/Zhangxinchuang-public-v0.3.5.1.apk",
+  "latest_version_name": "0.3.6.5",
+  "latest_version_code": 30605,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.6.5/zhangxinchuang-public-debug-apk.1.zip",
   "sha256": "",
   "required": false,
   "changelog": [
-    "允许 Android 端连接局域网/自建服务器的 HTTP 明文地址，例如 http://192.168.x.x:8513。",
-    "修复本地纯 HTTP 服务轮询时报 Cleartext HTTP traffic not permitted 的问题。",
-    "保留 v0.3.5.0 归电公开版全部功能，本版为连接兼容性 hotfix。",
-    "公网部署仍建议使用 HTTPS；HTTP 放开主要用于本人设备、本地局域网和测试环境。"
+    "降低前台轮询频率并限频状态上传，减少公开后端被频繁请求打到 429。",
+    "无障碍服务不再和前台服务重复轮询；仅在前台服务未运行时作为兜底轮询。",
+    "遇到 HTTP 429 时会自动短暂退避，并在 MCP 侧返回更明确的限流提示。",
+    "保留 MCP 超时优化、open_app/package_empty 空参数拦截和门禁工具兼容。",
+    "补充无障碍异常提示：引导检查受限设置、电池优化和后台运行权限。",
+    "固定签名保持不变，支持覆盖安装旧版本。"
   ]
 }
