@@ -1,15 +1,15 @@
 {
-  "latest_version_name": "0.3.6.4",
-  "latest_version_code": 30604,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.6.4/Zhangxinchuang-public-v0.3.6.4.apk",
+  "latest_version_name": "0.3.6.5",
+  "latest_version_code": 30605,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.6.5/zhangxinchuang-public-debug-apk.1.zip",
   "sha256": "",
   "required": false,
   "changelog": [
-    "修复 MCP 状态读取容易超时：get_phone_state 现在快速读取服务器缓存，并且活动日志改为异步记录。",
-    "缩短 MCP 后端请求、命令排队和命令状态轮询的默认等待时间，减少单工具超过 20 秒未返回的问题。",
-    "open_app 与门禁类工具增加空参数拦截：缺少 App 名称或包名时直接提示，不再下发 package_empty。",
-    "增加 MCP 侧常用 App 名称映射：小红书、抖音、微信、QQ、QQ音乐可自动补全包名。",
-    "保留守护日历自定义事件保存修复、get_lock_state 等应用门禁旧版工具名兼容。",
-    "清理公开包里的 server/.env 与 __pycache__，固定签名保持不变。"
+    "降低前台轮询频率并限频状态上传，减少公开后端被频繁请求打到 429。",
+    "无障碍服务不再和前台服务重复轮询；仅在前台服务未运行时作为兜底轮询。",
+    "遇到 HTTP 429 时会自动短暂退避，并在 MCP 侧返回更明确的限流提示。",
+    "保留 MCP 超时优化、open_app/package_empty 空参数拦截和门禁工具兼容。",
+    "补充无障碍异常提示：引导检查受限设置、电池优化和后台运行权限。",
+    "固定签名保持不变，支持覆盖安装旧版本。"
   ]
 }

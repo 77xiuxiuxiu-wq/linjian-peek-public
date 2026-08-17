@@ -51,7 +51,7 @@ function effectiveLinjianUrl() {
 const LINJIAN_TOKEN = process.env.LINJIAN_TOKEN || "";
 const DEFAULT_DEVICE = process.env.LINJIAN_DEFAULT_DEVICE || "android-phone";
 
-// v0.3.6.4：公开 MCP 经常被平台限制在 20 秒内返回。
+// v0.3.6.5：公开 MCP 经常被平台限制在 20 秒内返回。
 // 状态读取、活动记录和命令轮询都要快速失败，避免整条工具链被 Render 冷启动、网络抖动或手机端确认弹窗拖到超时。
 const DEFAULT_FETCH_TIMEOUT_MS = Number(process.env.LINJIAN_FETCH_TIMEOUT_MS || 8000);
 const QUICK_FETCH_TIMEOUT_MS = Number(process.env.LINJIAN_QUICK_FETCH_TIMEOUT_MS || 4500);
@@ -686,6 +686,10 @@ async function linjianFetch(path, options = {}) {
       activeLinjianUrl = base;
       if (!res.ok) {
         const text = await res.text().catch(() => "");
+        if (res.status === 429) {
+          const retry = res.headers.get("retry-after") || "稍后";
+          throw new Error(`LINJIAN_RATE_LIMITED: 掌心窗后端暂时限流，请等待 ${retry} 后再试。detail=${text || res.statusText}`);
+        }
         throw new Error(`Linjian server HTTP ${res.status} via ${base}: ${text || res.statusText}`);
       }
       return res;
@@ -798,7 +802,7 @@ async function fetchLatestImage() {
 }
 
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.6.4" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.6.5" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
@@ -1619,12 +1623,13 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.6.4",
+  version: "0.3.6.5",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",
   effective_linjian_url: effectiveLinjianUrl(),
-  fallback_linjian_urls: LINJIAN_URL_CANDIDATES.filter((u) => u !== RAW_LINJIAN_URL)
+  fallback_linjian_urls: LINJIAN_URL_CANDIDATES.filter((u) => u !== RAW_LINJIAN_URL),
+  stability_note: "v0.3.6.5 降低手机端轮询与状态上传压力；遇到 429 会返回限流提示。"
 }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }
