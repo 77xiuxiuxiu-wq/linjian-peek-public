@@ -12,8 +12,9 @@ Railway 的一键部署按钮基于 Railway Template。源码包本身不能直�
 Service Name: server
 Source Repo: 你的公开仓库地址
 Root Directory: server
-Build Command: 留空或 echo ok
-Start Command: python linjian_server.py
+Build Command: 留空
+Start Command: 留空
+Dockerfile Path: Dockerfile
 Healthcheck Path: /health
 Public Networking: HTTP 域名开启
 ```
@@ -27,7 +28,7 @@ LINJIAN_KEEP=3
 LINJIAN_DEFAULT_DEVICE=${{ shared.LINJIAN_DEFAULT_DEVICE }}
 ```
 
-不要设置 `LINJIAN_PORT`。Railway 会自动提供 `PORT`，后端会优先读取它。
+不要设置 `LINJIAN_PORT`。Railway 会自动提供 `PORT`，后端会优先读取它。server 目录已内置 `Dockerfile`，Root Directory 设为 `server` 后 Railway 会按 Dockerfile 构建，不需要手动填写 Build Command / Start Command。
 
 ### mcp
 
@@ -35,8 +36,8 @@ LINJIAN_DEFAULT_DEVICE=${{ shared.LINJIAN_DEFAULT_DEVICE }}
 Service Name: mcp
 Source Repo: 你的公开仓库地址
 Root Directory: mcp
-Build Command: npm install
-Start Command: npm start
+Build Command: 留空
+Start Command: pnpm start
 Healthcheck Path: /health
 Public Networking: HTTP 域名开启
 ```

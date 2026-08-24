@@ -60,8 +60,9 @@ Railway 服务设置：
 ```text
 Service Name: server
 Root Directory: server
-Build Command: 留空或 echo ok
-Start Command: python linjian_server.py
+Build Command: 留空
+Start Command: 留空
+Dockerfile Path: Dockerfile
 Healthcheck Path: /health
 ```
 
@@ -83,8 +84,8 @@ Railway 服务设置：
 ```text
 Service Name: mcp
 Root Directory: mcp
-Build Command: npm install
-Start Command: npm start
+Build Command: 留空
+Start Command: pnpm start
 Healthcheck Path: /health
 ```
 

@@ -2,6 +2,8 @@
 
 ## v0.3.7.2 快速修复
 
+- 补充 `server/Dockerfile`、`.dockerignore` 与 `requirements.txt`，避免 Railway 在 server 服务构建阶段无法识别 Python 项目。Railway server 服务现在推荐：Root Directory=`server`，Build Command 留空，Start Command 留空，由 Dockerfile 启动 `python linjian_server.py`。
+
 - 修复网页端 MCP 管理器连接公开版 MCP 时的跨域响应头问题。
 - 设置页「连接设置」会自动保存服务器地址、Token、设备 ID 与轮询间隔，杀掉后台再打开也会保留。
 
@@ -151,8 +153,9 @@ Railway 的一键部署依赖 **Railway Template**。本仓库已经整理好 se
 ```text
 Service Name：server
 Root Directory：server
-Build Command：留空或 echo ok
-Start Command：python linjian_server.py
+Build Command：留空
+Start Command：留空
+Dockerfile Path：Dockerfile
 Healthcheck Path：/health
 Public Networking：开启 HTTP 域名
 ```
@@ -171,8 +174,8 @@ LINJIAN_DEFAULT_DEVICE=${{ shared.LINJIAN_DEFAULT_DEVICE }}
 ```text
 Service Name：mcp
 Root Directory：mcp
-Build Command：npm install
-Start Command：npm start
+Build Command：留空
+Start Command：pnpm start
 Healthcheck Path：/health
 Public Networking：开启 HTTP 域名
 ```
@@ -227,8 +230,9 @@ PY
 ```text
 服务名：server
 Root Directory：server
-Build Command：留空或 echo ok
-Start Command：python linjian_server.py
+Build Command：留空
+Start Command：留空
+Dockerfile Path：Dockerfile
 ```
 
 环境变量：
@@ -240,7 +244,7 @@ LINJIAN_KEEP=3
 LINJIAN_DEFAULT_DEVICE=android-phone
 ```
 
-注意：Railway 会自动提供 `PORT`，不要强行写死 `LINJIAN_PORT`。后端代码会优先读取 Railway 的 `PORT`。
+注意：Railway 会自动提供 `PORT`，不要强行写死 `LINJIAN_PORT`。后端代码会优先读取 Railway 的 `PORT`。server 目录已经内置 `Dockerfile`，Root Directory 设为 `server` 后，Railway 不需要再猜 Python 构建方式。
 
 部署完成后，给 server 服务生成公网域名，访问：
 
@@ -257,8 +261,8 @@ https://你的-server-域名/health
 ```text
 服务名：mcp
 Root Directory：mcp
-Build Command：npm install
-Start Command：npm start
+Build Command：留空
+Start Command：pnpm start
 ```
 
 环境变量：
