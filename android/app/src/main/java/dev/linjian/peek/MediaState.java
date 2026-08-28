@@ -234,7 +234,7 @@ public class MediaState {
         String state = "unknown";
         long updatedAtMs = 0L;
         String reason = "";
-        boolean hasMedia() { return !empty(title) || !empty(artist); }
+        boolean hasMedia() { return !MediaState.empty(title) || !MediaState.empty(artist); }
         static Snapshot empty(String reason) { Snapshot s = new Snapshot(); s.reason = reason == null ? "" : reason; return s; }
     }
 }
