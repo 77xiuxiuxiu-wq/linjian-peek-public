@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""掌心窗公开版 v0.3.7.2 unified server.
+"""掌心窗公开版 v0.3.7.3 unified server.
 
 零依赖标准库版，负责：
 1. 给手机端下发 peek / open_app / back / home / recents / tap / swipe / set_alarm / send_notification 命令；
@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 DEFAULT_PORT = 8513
 DEFAULT_KEEP = 3
 MAX_UPLOAD_BYTES = 24 * 1024 * 1024
-VERSION = "0.3.7.2"
+VERSION = "0.3.7.3"
 DEFAULT_DEVICE = os.environ.get("LINJIAN_DEFAULT_DEVICE", "android-phone")
 ACTIVITY_EVENT_LIMIT = 500
 
@@ -216,8 +216,9 @@ class State:
             actions.insert(0, entry)
             del actions[120:]
             self.save_companion_state()
-        if data.get("write_activity"):
+        if data.get("write_activity", True):
             self.add_activity_event({
+                "id": data.get("activity_id") or data.get("id") or "",
                 "device_id": data.get("device_id") or DEFAULT_DEVICE, "source": "companion",
                 "type": data.get("type") or "activity", "title": entry["title"],
                 "subtitle": entry["summary"], "action": data.get("action") or "",
@@ -318,6 +319,9 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/health"):
             self._json(200, {"ok": True, "service": "linjian-public", "name": "掌心窗", "version": VERSION, "tools": sorted(ALLOWED_ACTIONS), "guidian": True, "calendar": True, "diary": True, "diary_storage": "phone_local", "app_gate": True})
             return
+        if path in ("/mcp", "/sse"):
+            self._json(400, {"ok": False, "error": "LINJIAN_ERR_WRONG_SERVICE", "message": "你访问的是掌心窗 server 服务，不是 MCP 服务。请单独部署 mcp 目录，并在 MCP 客户端填写 MCP 服务域名 + /mcp 或 /sse。"})
+            return
         if path == "/api/companion/state":
             if not self._require_token(): return
             limit = max(1, min(50, int(qs.get("limit", ["20"])[0] or 20)))
@@ -386,6 +390,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path in ("/mcp", "/sse"):
+            self._json(400, {"ok": False, "error": "LINJIAN_ERR_WRONG_SERVICE", "message": "你访问的是掌心窗 server 服务，不是 MCP 服务。请单独部署 mcp 目录，并在 MCP 客户端填写 MCP 服务域名 + /mcp 或 /sse。"})
+            return
         if path == "/api/companion/whisper":
             if not self._require_token(): return
             data = self._read_json()

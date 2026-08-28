@@ -180,7 +180,7 @@ async function postCompanionAction(toolName, overrides = {}) {
       method: "POST",
       timeout_ms: ACTIVITY_TIMEOUT_MS,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: meta[0], title: meta[1], summary: meta[2], type: overrides.type || activityTypeForTool(toolName), action: overrides.action || toolName, status: "completed", dedupe_seconds: isStatusTool(toolName) ? 20 : 0, ...overrides })
+      body: JSON.stringify({ kind: meta[0], title: meta[1], summary: meta[2], type: overrides.type || activityTypeForTool(toolName), action: overrides.action || toolName, status: "completed", write_activity: true, device_id: overrides.device_id || DEFAULT_DEVICE, dedupe_seconds: isStatusTool(toolName) ? 20 : 0, ...overrides })
     });
     return await res.json();
   } catch {
@@ -802,7 +802,7 @@ async function fetchLatestImage() {
 }
 
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.7.2" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.7.3" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
@@ -1811,7 +1811,7 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.7.2",
+  version: "0.3.7.3",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",
@@ -1820,7 +1820,7 @@ app.get("/health", (_req, res) => res.json({
   guardian_day_tools: true,
   diary_tools: true,
   diary_storage: "phone_local",
-  stability_note: "v0.3.7.2 新增守护日历删除能力与本机 TA 的日记工具，保留限流保护。"
+  stability_note: "v0.3.7.3 修复归电目标包名跳转与陪伴页行动记录同步，保留限流保护。"
 }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }

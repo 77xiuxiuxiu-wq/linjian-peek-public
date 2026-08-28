@@ -1,13 +1,20 @@
-# 掌心窗公开版 v0.3.7.2
+# 掌心窗公开版 v0.3.7.3
 
-## v0.3.7.2 快速修复
+## v0.3.7.3 修复重点
+
+- 修复归电来电页「接通」后没有跳转到归电设置里指定包名的问题：接通后会读取 `guidian_target_package`，关闭来电页后再按包名启动目标 App，失败时写入调试日志并提示原因。
+- 修复陪伴页「xx 的行动」不显示 AI/MCP 工具调用记录的问题：MCP 行动会同步写入统一行动日志，手机端同步时会合并本地与远端行动记录，不再被本地旧记录遮挡。
+- Railway 文档改为手动双服务部署说明，移除 README 中未生成模板码的一键部署引导，避免用户误把 server 域名当成 MCP 域名。
+- 今日页「此刻状态」卡片新增媒体状态：用户开启通知使用权后，可显示正在播放的歌曲/音频标题、歌手、播放状态与来源 App。
+
+## v0.3.7.3 快速修复
 
 - 补充 `server/Dockerfile`、`.dockerignore` 与 `requirements.txt`，避免 Railway 在 server 服务构建阶段无法识别 Python 项目。Railway server 服务现在推荐：Root Directory=`server`，Build Command 留空，Start Command 留空，由 Dockerfile 启动 `python linjian_server.py`。
 
 - 修复网页端 MCP 管理器连接公开版 MCP 时的跨域响应头问题。
 - 设置页「连接设置」会自动保存服务器地址、Token、设备 ID 与轮询间隔，杀掉后台再打开也会保留。
 
-## v0.3.7.2 日记与守护日历更新
+## v0.3.7.3 日记与守护日历更新
 
 - 守护日历事件补充稳定 ID，支持在日期详情卡中编辑、确认删除，并兼容没有 ID 的旧数据。
 - MCP 完善 `list_guardian_days`、`add_guardian_day`、`update_guardian_day`、`delete_guardian_day`。
@@ -40,7 +47,6 @@
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/linzhi-524/linjian-peek-public)
 
-> Railway 一键部署按钮需要先在 Railway 控制台生成 Template Code。生成后，把 `docs/railway-one-click.md` 里的 `YOUR_TEMPLATE_CODE` 替换掉，再把按钮复制到这里即可。
 
 掌心窗公开版是一个可自部署的 Android 陪伴窗：手机端负责展示、截图/读屏、通知、日历、门禁与息屏等本机能力；同步后端负责保存状态和下发指令；MCP 服务负责把这些能力暴露给 AI 客户端使用。
 
@@ -48,7 +54,7 @@
 
 ## 本版内容
 
-- **今日页**：今日窗语、今日专注、天气、下一件事、手机电量、今日轨迹。
+- **今日页**：今日窗语、今日专注、天气、下一件事、手机电量、此刻状态（姿态/光线/当前 App/授权后定位与媒体播放）、今日轨迹。
 - **陪伴页**：陪伴对象卡片、最近一句话、陪伴天数、下个纪念日、行动记录、归电入口，以及本机保存的“TA 的日记”。
 - **守护页**：守护日历、目标 App 设置、应用门禁、屏幕休息、提醒、天气、息屏。
 - **设置页**：服务器连接、Token、设备 ID、用户名称、陪伴对象名称、目标 App、权限、主动提醒、周期、主题、调试、版本更新、许可。
@@ -83,15 +89,15 @@ update.json   版本更新信息
 
 1. 将源码包解压并覆盖到公开仓库根目录，确保 `.github`、`android`、`server`、`mcp` 位于根目录。
 2. 打开 GitHub 仓库 → **Actions** → **Build Android Public APK** → **Run workflow**。
-3. 构建成功后下载 `zhangxinchuang-public-v0.3.7.2-apk` artifact。
+3. 构建成功后下载 `zhangxinchuang-public-v0.3.7.3-apk` artifact。
 
 构建产物为：
 
 ```text
-android/Zhangxinchuang-public-v0.3.7.2.apk
+android/Zhangxinchuang-public-v0.3.7.3.apk
 ```
 
-版本名 `0.3.7.2`，版本码 `30702`。
+版本名 `0.3.7.3`，版本码 `30703`。
 
 ### 固定签名
 
@@ -136,79 +142,9 @@ Blueprint 会自动生成并共享：
 
 验证方式：打开 `zhangxinchuang-mcp` 的 `/health`，如果看到 `fallback_linjian_urls` 里出现 `https://...onrender.com`，说明旧内网地址兼容逻辑已经生效。
 
-## Railway 一键部署
-
-Railway 的一键部署依赖 **Railway Template**。本仓库已经整理好 server 与 MCP 的双服务配置说明；真正的一键按钮需要你先在 Railway 控制台把双服务项目生成为模板，然后得到 Template Code。
-
-模板生成后，把下面链接中的 `YOUR_TEMPLATE_CODE` 替换成真实模板码，再放到 README 顶部即可：
-
-```markdown
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template/YOUR_TEMPLATE_CODE?utm_medium=integration&utm_source=button&utm_campaign=zhangxinchuang)
-```
-
-模板内建议使用两个服务：
-
-### server 服务
-
-```text
-Service Name：server
-Root Directory：server
-Build Command：留空
-Start Command：留空
-Dockerfile Path：Dockerfile
-Healthcheck Path：/health
-Public Networking：开启 HTTP 域名
-```
-
-环境变量：
-
-```env
-LINJIAN_TOKEN=${{ shared.LINJIAN_TOKEN }}
-LINJIAN_HOST=0.0.0.0
-LINJIAN_KEEP=3
-LINJIAN_DEFAULT_DEVICE=${{ shared.LINJIAN_DEFAULT_DEVICE }}
-```
-
-### mcp 服务
-
-```text
-Service Name：mcp
-Root Directory：mcp
-Build Command：留空
-Start Command：pnpm start
-Healthcheck Path：/health
-Public Networking：开启 HTTP 域名
-```
-
-环境变量：
-
-```env
-LINJIAN_URL=https://${{ server.RAILWAY_PUBLIC_DOMAIN }}
-LINJIAN_TOKEN=${{ shared.LINJIAN_TOKEN }}
-LINJIAN_DEFAULT_DEVICE=${{ shared.LINJIAN_DEFAULT_DEVICE }}
-```
-
-### Shared Variables
-
-在 Railway Template 中设置共享变量：
-
-```env
-LINJIAN_TOKEN=${{ secret(48) }}
-LINJIAN_DEFAULT_DEVICE=android-phone
-```
-
-部署完成后：
-
-1. 访问 `https://你的-server-域名/health`，确认后端在线。
-2. 访问 `https://你的-mcp-域名/health`，确认 MCP 已连上 server。
-3. Android 设置页填写 server 公网地址、同一个 Token 和设备 ID。
-4. AI/MCP 客户端填写 `https://你的-mcp-域名/mcp` 或 `https://你的-mcp-域名/sse`。
-
-更完整的 Railway 模板按钮配置见 [docs/railway-one-click.md](docs/railway-one-click.md)。手动双服务部署流程见 [docs/setup.md](docs/setup.md)。
-
 ## Railway 手动双服务部署
 
-如果暂时没有 Railway Template Code，也可以手动部署。Railway 建议把后端和 MCP 分成两个服务，它们可以来自同一个 GitHub 仓库，但 Root Directory、启动命令和环境变量不同。
+Railway 请使用手动双服务部署。后端和 MCP 要分成两个服务，它们可以来自同一个 GitHub 仓库，但 Root Directory、启动命令和环境变量不同。
 
 ### 第一步：准备 Token
 
@@ -281,7 +217,7 @@ LINJIAN_DEFAULT_DEVICE=android-phone
 https://你的-mcp-域名/health
 ```
 
-看到 `ok: true`、`has_url: true`、`has_token: true` 就说明 MCP 可用。
+看到 `ok: true`、`has_url: true`、`has_token: true` 就说明 MCP 可用。注意：AI/MCP 客户端只能填写 MCP 服务域名，不能把 server 域名加 `/mcp` 当作 MCP 地址。
 
 AI/MCP 客户端连接：
 
@@ -387,6 +323,6 @@ MCP 详细工具说明见 [docs/mcp.md](docs/mcp.md)。常用工具分组如下�
 - 自动发送评论、点击按钮、读屏、截图、门禁、息屏等动作建议默认手动确认。
 - 公开版不应写死私人姓名、私人关系、私人服务地址或私人接口。
 
-许可条款见 [LICENSE](LICENSE)。
+许可条款见 [LICENSE](LICENSE)。本项目不是 MIT/Apache/GPL 等开放源代码许可证；源码公开仅用于透明、学习、审计、个人自用部署和个人本地修改。未经项目作者明确书面许可，不得改名/换图标/换署名后重新发布衍生版本，也不得分发重新打包的 APK、镜像、压缩包或托管服务。
 
 > v0.3.6.6 补充：无障碍状态会在从系统设置返回后延迟复查多次，并兼容不同系统写入无障碍组件名的格式差异；如果侧载 APK 被系统拦截，App 会提示去“应用信息 → 允许受限设置”，再回无障碍开启“掌心窗服务”。
