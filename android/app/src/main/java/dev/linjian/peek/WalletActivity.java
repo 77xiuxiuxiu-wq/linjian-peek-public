@@ -30,6 +30,8 @@ public class WalletActivity extends Activity {
     private TextView title, actionText, ruleText;
     private String page = "home";
     private String selectedMonth = WalletState.currentMonth();
+    private boolean myApprovalsOpen = true;
+    private boolean companionApprovalsOpen = true;
     private UITheme theme;
     private int bg, ink, sub, primary, primarySoft, cardColor, cardSoft, cardStroke;
 
@@ -171,7 +173,7 @@ public class WalletActivity extends Activity {
             quick.addView(actionButton("◇  申请花钱", v -> showAdd("approval")), weightLp(1, 4, 4));
             quick.addView(actionButton("▥  统计", v -> showStats()), weightLp(1, 4, 0));
 
-            addSectionTitle("待审批", "查看全部", v -> showPending());
+            addSectionTitle("审批列表", "查看全部", v -> showPending());
             JSONArray approvals = s.optJSONArray("approval_records");
             JSONArray pending = s.optJSONArray("pending_records");
             int shownApproval = 0;
@@ -180,7 +182,7 @@ public class WalletActivity extends Activity {
                 shownApproval++;
             }
             if (shownApproval == 0 && pending != null && pending.length() > 0) content.addView(recordCard(pending.optJSONObject(0), true));
-            if (shownApproval == 0 && (pending == null || pending.length() == 0)) content.addView(emptyCard("暂无待审批", "◇"));
+            if (shownApproval == 0 && (pending == null || pending.length() == 0)) content.addView(emptyCard("暂无审批记录", "◇"));
 
             addSectionTitle("最近消费", "统计", v -> showStats());
             JSONArray recent = s.optJSONArray("recent_records");
@@ -215,7 +217,7 @@ public class WalletActivity extends Activity {
                     cmd.put("action", "submit_wallet_approval"); cmd.put("amount", a); cmd.put("item", note.getText().toString()); cmd.put("note", note.getText().toString()); cmd.put("category", category.getText().toString());
                     cmd.put("necessity", parseInt(necessity.getText().toString(), 3)); cmd.put("impulse", parseInt(impulse.getText().toString(), 3));
                     WalletState.submitApprovalRequest(this, cmd);
-                    toast("已提交给" + companionName() + "审批");
+                    toast("已提交，等待处理");
                     showPending();
                 } else {
                     cmd.put("action", "add_wallet_record"); cmd.put("amount", a); cmd.put("type", current[0]); cmd.put("category", category.getText().toString()); cmd.put("note", note.getText().toString()); cmd.put("source", "manual");
@@ -227,18 +229,33 @@ public class WalletActivity extends Activity {
 
     private void showPending() {
         page = "pending";
-        reset("待审批", "", null);
+        reset("审批列表", "", null);
         JSONObject state = WalletState.collect(this, selectedMonth);
         JSONArray approvals = state.optJSONArray("approval_records");
         JSONArray arr = state.optJSONArray("pending_records");
+        int myCount = countApprovals(approvals, "user");
+        int companionCount = countApprovals(approvals, "companion");
         boolean any = false;
-        if (approvals != null) {
-            for (int i = 0; i < approvals.length(); i++) { content.addView(approvalCard(approvals.optJSONObject(i))); any = true; }
+
+        addFoldTitle("我的申请", myCount, myApprovalsOpen, v -> { myApprovalsOpen = !myApprovalsOpen; showPending(); });
+        if (myApprovalsOpen) {
+            int shown = addApprovalCardsForRole(approvals, "user");
+            if (shown == 0) content.addView(emptyCard("暂无我的申请。", "◇"));
+            any = any || shown > 0;
         }
-        if (arr != null) {
+
+        addFoldTitle(companionName() + "的申请", companionCount, companionApprovalsOpen, v -> { companionApprovalsOpen = !companionApprovalsOpen; showPending(); });
+        if (companionApprovalsOpen) {
+            int shown = addApprovalCardsForRole(approvals, "companion");
+            if (shown == 0) content.addView(emptyCard("暂无" + companionName() + "的申请。", "◇"));
+            any = any || shown > 0;
+        }
+
+        if (arr != null && arr.length() > 0) {
+            addSectionTitle("待确认账单", "", null);
             for (int i = 0; i < arr.length(); i++) { content.addView(recordCard(arr.optJSONObject(i), true)); any = true; }
         }
-        if (!any) content.addView(emptyCard("没有待审批。", "◇"));
+        if (!any) content.addView(emptyCard("暂无审批记录。", "◇"));
     }
 
     private void showRules() {
@@ -347,10 +364,10 @@ public class WalletActivity extends Activity {
         LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL); box.addView(row);
         TextView icon = new TextView(this); icon.setText("审"); icon.setTextSize(16); icon.setTextColor(ink); icon.setTypeface(Typeface.DEFAULT_BOLD); icon.setGravity(Gravity.CENTER); icon.setBackground(round(primarySoft, dp(18), 0, 0)); row.addView(icon, new LinearLayout.LayoutParams(dp(42), dp(42)));
         LinearLayout mid = new LinearLayout(this); mid.setOrientation(LinearLayout.VERTICAL); LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(0, -2, 1); mp.leftMargin = dp(10); row.addView(mid, mp);
-        TextView name = text(statusLabel(r.optString("status")) + "｜" + r.optString("category", "其他"), 14, true); mid.addView(name);
+        TextView name = text(statusLabel(r) + "｜" + r.optString("category", "其他"), 14, true); mid.addView(name);
         TextView note = small(r.optString("item", r.optString("note", "这笔消费"))); note.setMaxLines(1); mid.addView(note);
         TextView money = text("¥" + WalletState.money(r.optDouble("amount",0)), 14, true); row.addView(money);
-        TextView msg = small(r.optString("approval_message", "已提交给" + companionName() + "审批，等待回复。")); msg.setPadding(dp(52), dp(8), 0, 0); box.addView(msg);
+        TextView msg = small(r.optString("approval_message", defaultApprovalWaitingText(r))); msg.setPadding(dp(52), dp(8), 0, 0); box.addView(msg);
         box.setOnClickListener(v -> showApprovalDetail(r));
         return box;
     }
@@ -363,16 +380,105 @@ public class WalletActivity extends Activity {
         sb.append("用途：").append(r.optString("item", r.optString("note", "这笔消费"))).append("\n");
         sb.append("必要程度：").append(r.optInt("necessity", 3)).append("/5\n");
         sb.append("冲动程度：").append(r.optInt("impulse", 3)).append("/5\n");
-        sb.append("状态：").append(statusLabel(r.optString("status"))).append("\n\n");
-        sb.append(companionName()).append("审批：\n").append(r.optString("approval_message", "已提交给" + companionName() + "审批，等待回复。"));
-        new AlertDialog.Builder(this).setTitle("审批详情").setMessage(sb.toString()).setPositiveButton("知道了", null).show();
+        sb.append("发起：").append(displayRequesterName(r)).append("\n");
+        sb.append("处理：").append(displayApproverName(r)).append("\n");
+        sb.append("状态：").append(statusLabel(r)).append("\n\n");
+        sb.append("处理备注：\n").append(r.optString("approval_message", defaultApprovalWaitingText(r)));
+        AlertDialog.Builder builder = new AlertDialog.Builder(this).setTitle("审批详情").setMessage(sb.toString());
+        if (canUserHandleApproval(r)) {
+            builder.setPositiveButton("通过", (d, w) -> handleApprovalDecision(r, "ok"));
+            builder.setNeutralButton("暂缓", (d, w) -> handleApprovalDecision(r, "hold"));
+            builder.setNegativeButton("驳回", (d, w) -> handleApprovalDecision(r, "no"));
+        } else {
+            builder.setPositiveButton("知道了", null);
+        }
+        builder.show();
     }
 
-    private String statusLabel(String status) {
+    private boolean canUserHandleApproval(JSONObject r) {
+        if (r == null) return false;
+        boolean pending = "approval_pending".equals(r.optString("status")) || "waiting".equals(r.optString("decision"));
+        return pending && "companion".equals(requesterRole(r));
+    }
+
+    private void handleApprovalDecision(JSONObject r, String status) {
+        try {
+            String note;
+            if ("no".equals(status)) note = "已驳回。";
+            else if ("hold".equals(status)) note = "先暂缓，晚点再处理。";
+            else note = "已通过。";
+            WalletState.decideApproval(this, new JSONObject()
+                    .put("id", r.optString("id"))
+                    .put("status", status)
+                    .put("note", note)
+                    .put("approved_by", AppPrefs.userName(this)));
+            toast("已处理");
+            showPending();
+        } catch (Exception e) { toast("处理失败"); }
+    }
+
+    private String statusLabel(JSONObject r) {
+        String status = r == null ? "" : r.optString("status", "");
         if ("approval_approved".equals(status)) return "已通过";
         if ("approval_rejected".equals(status)) return "已驳回";
-        if ("approval_delayed".equals(status)) return "延迟再看";
-        return "等待" + companionName() + "审批";
+        if ("approval_delayed".equals(status)) return "暂缓";
+        return "companion".equals(requesterRole(r)) ? "等待你处理" : "等待" + companionName() + "审批";
+    }
+
+    private String requesterRole(JSONObject r) {
+        if (r == null) return "user";
+        String role = r.optString("requester_role", "");
+        if ("companion".equals(role)) return "companion";
+        return "user";
+    }
+
+    private int countApprovals(JSONArray approvals, String role) {
+        if (approvals == null) return 0;
+        int n = 0;
+        for (int i = 0; i < approvals.length(); i++) if (role.equals(requesterRole(approvals.optJSONObject(i)))) n++;
+        return n;
+    }
+
+    private int addApprovalCardsForRole(JSONArray approvals, String role) {
+        if (approvals == null) return 0;
+        int n = 0;
+        for (int i = 0; i < approvals.length(); i++) {
+            JSONObject r = approvals.optJSONObject(i);
+            if (r == null || !role.equals(requesterRole(r))) continue;
+            content.addView(approvalCard(r));
+            n++;
+        }
+        return n;
+    }
+
+    private void addFoldTitle(String label, int count, boolean open, View.OnClickListener listener) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(14), 0, dp(7));
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setOnClickListener(listener);
+        content.addView(row, new LinearLayout.LayoutParams(-1, dp(48)));
+        TextView l = text(label, 14, true);
+        row.addView(l, new LinearLayout.LayoutParams(0, -1, 1));
+        TextView r = text(count + " 条  " + (open ? "⌃" : "⌄"), 12, true);
+        r.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        r.setTextColor(sub);
+        row.addView(r, new LinearLayout.LayoutParams(dp(112), -1));
+    }
+
+    private String displayRequesterName(JSONObject r) {
+        if ("companion".equals(requesterRole(r))) return r.optString("requester_name", companionName());
+        return r == null ? AppPrefs.userName(this) : r.optString("requester_name", AppPrefs.userName(this));
+    }
+
+    private String displayApproverName(JSONObject r) {
+        if (r == null) return companionName();
+        String role = r.optString("approver_role", "companion");
+        return "user".equals(role) ? r.optString("approver_name", AppPrefs.userName(this)) : r.optString("approver_name", companionName());
+    }
+
+    private String defaultApprovalWaitingText(JSONObject r) {
+        return "companion".equals(requesterRole(r)) ? companionName() + "提交给你处理，等待回复。" : "已提交给" + companionName() + "审批，等待回复。";
     }
 
     private LinearLayout recordCard(JSONObject r, boolean pending) {

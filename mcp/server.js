@@ -145,8 +145,8 @@ const APP_TARGET_ACTIONS = new Set([
   "temporary_screen_break_release", "temporary_screen_release", "extend_screen_break", "deny_screen_break_release_request",
   "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
   "remove_screen_break_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase",
-    "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "confirm_wallet_record",
-    "decide_wallet_approval", "set_wallet_rules", "wallet_approval_request"
+    "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "submit_companion_wallet_request", "list_companion_wallet_requests", "list_wallet_request_results", "confirm_wallet_record",
+    "decide_wallet_approval", "save_wallet_request_result", "set_wallet_rules", "wallet_approval_request"
 ]);
 
 const COMPANION_ACTION_META = {
@@ -837,8 +837,40 @@ function walletMonthStateFromCache(wallet, month = "") {
   return { ok: true, device_id: wallet.device_id || DEFAULT_DEVICE, wallet_version: wallet.wallet_version || "public-local", month: target, month_label: summary.label || target, monthly_budget: summary.monthly_budget, spent: summary.spent, income: summary.income, remaining: summary.remaining, saved_estimate: summary.saved_estimate, recent_records: [], category_totals: {}, summary_only: true, note: "缓存里只有该月份摘要；需要明细时请用 get_wallet_month_state 等待手机端返回。" };
 }
 
+function walletRequestRole(record) {
+  const role = String(record?.requester_role || "user").trim().toLowerCase();
+  return role === "companion" ? "companion" : "user";
+}
+
+function filterWalletApprovals(records = [], role = "all", status = "all") {
+  const targetRole = String(role || "all").trim().toLowerCase();
+  const targetStatus = String(status || "all").trim().toLowerCase();
+  const arr = Array.isArray(records) ? records : [];
+  return arr.filter((r) => {
+    if (!r) return false;
+    const rRole = walletRequestRole(r);
+    if (targetRole && targetRole !== "all" && targetRole !== rRole) return false;
+    const s = String(r.status || "");
+    const d = String(r.decision || "");
+    const waiting = s === "approval_pending" || d === "waiting";
+    if (targetStatus === "waiting" || targetStatus === "pending") return waiting;
+    if (targetStatus === "handled" || targetStatus === "done") return !waiting;
+    if (targetStatus && targetStatus !== "all") return s === targetStatus || d === targetStatus;
+    return true;
+  });
+}
+
+function walletApprovalSummary(records = []) {
+  const arr = Array.isArray(records) ? records : [];
+  return {
+    approval_count: arr.length,
+    pending_count: arr.filter((r) => String(r?.status || "") === "approval_pending" || String(r?.decision || "") === "waiting").length,
+    handled_count: arr.filter((r) => !(String(r?.status || "") === "approval_pending" || String(r?.decision || "") === "waiting")).length
+  };
+}
+
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.7.4" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.7.6" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
@@ -847,8 +879,8 @@ function makeServer() {
     "temporary_screen_break_release", "end_screen_break", "extend_screen_break", "deny_screen_break_release_request",
     "get_screen_break_state", "get_lock_state", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
     "list_screen_break_apps", "list_lockable_apps", "add_screen_break_app", "add_locked_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase",
-    "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "confirm_wallet_record",
-    "decide_wallet_approval", "set_wallet_rules", "wallet_approval_request"
+    "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "submit_companion_wallet_request", "list_companion_wallet_requests", "list_wallet_request_results", "confirm_wallet_record",
+    "decide_wallet_approval", "save_wallet_request_result", "set_wallet_rules", "wallet_approval_request"
   ]);
   const originalTool = server.tool.bind(server);
   server.tool = (...args) => {
@@ -1058,7 +1090,7 @@ function makeServer() {
 
 
 
-  server.tool("get_wallet_state", "读取掌心窗小金库当前月份：预算、已花、剩余、待审批和最近账单。小金库默认保存在手机本地；本工具优先读取手机最近上报的授权摘要。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
+  server.tool("get_wallet_state", "读取掌心窗小金库当前月份：预算、已花、剩余、待处理、审批列表和最近账单。小金库默认保存在手机本地；本工具优先读取手机最近上报的授权摘要。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
     const direct = await getCachedWalletState(device_id);
     if (direct.wallet_state) return textResult(direct);
     const result = await runWalletCommand("get_wallet_state", { device_id }, DEFAULT_COMMAND_WAIT_SECONDS);
@@ -1081,17 +1113,17 @@ function makeServer() {
     return textResult(await runWalletCommand("list_wallet_months", { device_id }, wait_seconds));
   });
 
-  server.tool("list_wallet_pending", "读取小金库待审批/待确认列表。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+  server.tool("list_wallet_pending", "读取小金库审批列表和待确认账单。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
     const direct = await getCachedWalletState(device_id).catch(() => ({}));
     const w = direct.wallet_state;
-    if (w) return textResult({ ok: true, device_id, pending_count: w.pending_count || 0, approval_count: w.approval_count || 0, pending_records: w.pending_records || [], approval_records: w.approval_records || [], direct: true });
+    if (w) return textResult({ ok: true, device_id, pending_count: w.pending_count || 0, approval_count: w.approval_count || 0, approval_pending_count: w.approval_pending_count || 0, todo_count: w.todo_count || 0, pending_records: w.pending_records || [], approval_records: w.approval_records || [], direct: true });
     return textResult(await runWalletCommand("list_wallet_pending", { device_id }, wait_seconds));
   });
 
   server.tool("list_wallet_approvals", "读取小金库花钱审批申请和审批结果。用于陪伴对象查看用户提交的花钱申请，并决定通过、延迟或驳回。", { month: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ month = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
     const direct = await getCachedWalletState(device_id).catch(() => ({}));
     const w = direct.wallet_state;
-    if (w && (!month || w.month === month)) return textResult({ ok: true, device_id, month: w.month, pending_count: w.pending_count || 0, approval_count: w.approval_count || 0, approval_records: w.approval_records || [], direct: true });
+    if (w && (!month || w.month === month)) return textResult({ ok: true, device_id, month: w.month, pending_count: w.pending_count || 0, approval_count: w.approval_count || 0, approval_pending_count: w.approval_pending_count || 0, todo_count: w.todo_count || 0, approval_records: w.approval_records || [], direct: true });
     return textResult(await runWalletCommand("list_wallet_approvals", { month, device_id }, wait_seconds));
   });
 
@@ -1099,12 +1131,40 @@ function makeServer() {
     return textResult(await runWalletCommand("add_wallet_record", args, args.wait_seconds));
   });
 
-  server.tool("submit_wallet_approval", "提交一条花钱申请，等待陪伴对象审批。", { amount: z.number(), item: z.string().default(""), category: z.string().default("其他"), merchant: z.string().default(""), reason: z.string().default(""), necessity: z.number().int().min(1).max(5).default(3), impulse: z.number().int().min(1).max(5).default(3), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
-    return textResult(await runWalletCommand("submit_wallet_approval", args, args.wait_seconds));
+  server.tool("submit_wallet_approval", "提交一条小金库申请。requester_role=user 表示用户提交给陪伴者处理；requester_role=companion 表示陪伴者提交给用户处理。", { amount: z.number().default(0), item: z.string().default(""), category: z.string().default("其他"), merchant: z.string().default(""), reason: z.string().default(""), necessity: z.number().int().min(1).max(5).default(3), impulse: z.number().int().min(1).max(5).default(3), requester_role: z.string().default("companion"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("submit_wallet_approval", { ...args, source: "mcp" }, args.wait_seconds));
   });
 
-  server.tool("decide_wallet_approval", "审批一条小金库花钱申请，并写入陪伴对象的审批意见。", { id: z.string(), decision: z.string().default("approved"), message: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+  server.tool("submit_companion_wallet_request", "陪伴者向用户提交一条小金库申请，等待用户处理。适合让陪伴者提出休息、预算、陪伴或生活安排类申请。", { amount: z.number().default(0), item: z.string().default(""), category: z.string().default("其他"), merchant: z.string().default(""), reason: z.string().default(""), necessity: z.number().int().min(1).max(5).default(3), impulse: z.number().int().min(1).max(5).default(3), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("submit_companion_wallet_request", { ...args, requester_role: "companion", source: "mcp", created_by: "companion" }, args.wait_seconds));
+  });
+
+  server.tool("list_companion_wallet_requests", "读取陪伴者提交给用户的申请，以及用户通过、暂缓或驳回后的处理结果。", { month: z.string().default(""), status: z.string().default("all"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ month = "", status = "all", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const direct = await getCachedWalletState(device_id).catch(() => ({}));
+    const w = direct.wallet_state;
+    if (w && (!month || w.month === month)) {
+      const records = filterWalletApprovals(w.approval_records || [], "companion", status);
+      return textResult({ ok: true, device_id, month: w.month, requester_role: "companion", status_filter: status, ...walletApprovalSummary(records), approval_records: records, direct: true });
+    }
+    return textResult(await runWalletCommand("list_companion_wallet_requests", { month, status, device_id }, wait_seconds));
+  });
+
+  server.tool("list_wallet_request_results", "读取小金库申请列表和处理结果，可按发起方筛选：all/user/companion，也可按状态筛选 all/waiting/handled。", { month: z.string().default(""), requester_role: z.string().default("all"), status: z.string().default("all"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ month = "", requester_role = "all", status = "all", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const direct = await getCachedWalletState(device_id).catch(() => ({}));
+    const w = direct.wallet_state;
+    if (w && (!month || w.month === month)) {
+      const records = filterWalletApprovals(w.approval_records || [], requester_role, status);
+      return textResult({ ok: true, device_id, month: w.month, requester_role, status_filter: status, ...walletApprovalSummary(records), approval_records: records, direct: true });
+    }
+    return textResult(await runWalletCommand("list_wallet_request_results", { month, requester_role, status, device_id }, wait_seconds));
+  });
+
+  server.tool("decide_wallet_approval", "保存一条小金库申请的处理结果和备注。兼容旧名称。", { id: z.string(), decision: z.string().default("approved"), message: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
     return textResult(await runWalletCommand("decide_wallet_approval", args, args.wait_seconds));
+  });
+
+  server.tool("save_wallet_request_result", "保存一条小金库申请的处理结果和备注。status 可填 ok / hold / no；note 为显示在申请详情中的备注。", { id: z.string(), status: z.string().default("ok"), note: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("save_wallet_request_result", args, args.wait_seconds));
   });
 
   server.tool("confirm_wallet_record", "确认、忽略或修改一条小金库待确认账单。", { id: z.string(), decision: z.string().default("confirm"), amount: z.number().default(0), category: z.string().default(""), note: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
@@ -1917,7 +1977,7 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.7.4",
+  version: "0.3.7.6",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",
@@ -1926,7 +1986,7 @@ app.get("/health", (_req, res) => res.json({
   guardian_day_tools: true,
   diary_tools: true,
   diary_storage: "phone_local",
-  stability_note: "v0.3.7.4 修复归电目标包名跳转与陪伴页行动记录同步，保留限流保护。"
+  stability_note: "v0.3.7.6 新增陪伴者发起小金库申请与申请结果查询工具，保留限流保护。"
 }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }

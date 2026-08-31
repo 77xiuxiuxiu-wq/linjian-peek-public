@@ -42,7 +42,7 @@ public class WalletState {
             String currentMonth = monthKey(now);
             String month = (targetMonth == null || targetMonth.trim().length() == 0) ? currentMonth : targetMonth.trim();
             double spent = 0, income = 0, saved = 0;
-            int pending = 0, confirmed = 0, approvals = 0;
+            int pending = 0, confirmed = 0, approvals = 0, approvalPending = 0;
             LinkedHashMap<String, Double> cat = new LinkedHashMap<>();
             JSONArray recent = new JSONArray();
             JSONArray pendingArr = new JSONArray();
@@ -61,6 +61,7 @@ public class WalletState {
                 if (isApproval) {
                     if (!month.equals(monthKey(r.optLong("created_at_ms", now)))) continue;
                     approvals++;
+                    if ("approval_pending".equals(status) || "waiting".equals(r.optString("decision", ""))) approvalPending++;
                     if (approvalArr.length() < 40) approvalArr.put(r);
                     if ("approval_rejected".equals(status) || "approval_delayed".equals(status)) saved += Math.max(0, r.optDouble("amount", 0));
                     continue;
@@ -95,6 +96,9 @@ public class WalletState {
             out.put("saved_estimate", round2(saved));
             out.put("pending_count", pending);
             out.put("approval_count", approvals);
+            out.put("approval_record_count", approvals);
+            out.put("approval_pending_count", approvalPending);
+            out.put("todo_count", approvalPending + pending);
             out.put("confirmed_count_this_month", confirmed);
             out.put("category_totals", cats);
             out.put("recent_records", recent);
@@ -102,7 +106,7 @@ public class WalletState {
             out.put("approval_records", approvalArr);
             out.put("month_summaries", monthSummaries(ctx));
             out.put("rules", rules(ctx));
-            out.put("summary", "小金库：" + monthLabel(month) + "已花 ¥" + money(spent) + "，预算 ¥" + money(budget) + "，剩余 ¥" + money(remaining) + "，待审批 " + approvals + " 条，待确认 " + pending + " 笔。");
+            out.put("summary", "小金库：" + monthLabel(month) + "已花 ¥" + money(spent) + "，预算 ¥" + money(budget) + "，剩余 ¥" + money(remaining) + "；待处理 " + (approvalPending + pending) + " 项，审批记录 " + approvals + " 条。");
         } catch (Exception e) { try { out.put("ok", false).put("error", ScreenshotService.shortMsg(e)); } catch (Exception ignored) {} }
         return out;
     }
@@ -186,19 +190,58 @@ public class WalletState {
                 return new JSONObject().put("ok", true)
                         .put("pending_count", s.optInt("pending_count"))
                         .put("approval_count", s.optInt("approval_count"))
+                        .put("approval_pending_count", s.optInt("approval_pending_count"))
+                        .put("todo_count", s.optInt("todo_count"))
                         .put("pending_records", s.optJSONArray("pending_records"))
                         .put("approval_records", s.optJSONArray("approval_records"));
+            }
+            if ("list_companion_wallet_requests".equals(action)) {
+                return listRequests(ctx, cmd, "companion");
+            }
+            if ("list_wallet_request_results".equals(action)) {
+                return listRequests(ctx, cmd, cmd.optString("requester_role", "all"));
             }
             if ("get_wallet_rules".equals(action)) return new JSONObject().put("ok", true).put("rules", rules(ctx));
             if ("set_wallet_rules".equals(action)) return setRules(ctx, cmd);
             if ("add_wallet_record".equals(action)) return addRecord(ctx, cmd, cmd.optBoolean("require_confirm", false) ? "pending" : cmd.optString("status", "confirmed"));
-            if ("submit_wallet_approval".equals(action)) return submitApprovalRequest(ctx, cmd);
+            if ("submit_companion_wallet_request".equals(action)) { cmd.put("requester_role", "companion"); cmd.put("source", "mcp"); cmd.put("created_by", "companion"); return submitApprovalRequest(ctx, cmd); }
+            if ("submit_wallet_approval".equals(action) || "submit_wallet_request".equals(action)) return submitApprovalRequest(ctx, cmd);
             if ("confirm_wallet_record".equals(action)) return confirmRecord(ctx, cmd);
-            if ("decide_wallet_approval".equals(action)) return decideApproval(ctx, cmd);
+            if ("decide_wallet_approval".equals(action) || "save_wallet_request_result".equals(action) || "update_wallet_request_result".equals(action)) return decideApproval(ctx, cmd);
             if ("wallet_approval_request".equals(action)) return approvalRequest(ctx, cmd);
             if ("open_wallet".equals(action)) return new JSONObject().put("ok", true).put("result", "open_wallet_supported_by_activity");
             return new JSONObject().put("ok", false).put("error", "unknown_wallet_action").put("action", action);
         } catch (Exception e) { try { return new JSONObject().put("ok", false).put("error", ScreenshotService.shortMsg(e)).put("action", action); } catch (Exception ignored) { return new JSONObject(); } }
+    }
+
+    public static JSONObject listRequests(Context ctx, JSONObject cmd, String roleFilter) throws Exception {
+        JSONObject s = collect(ctx, cmd.optString("month", currentMonth()));
+        JSONArray approvals = s.optJSONArray("approval_records");
+        JSONArray filtered = new JSONArray();
+        String role = roleFilter == null ? "all" : roleFilter.trim().toLowerCase(Locale.US);
+        String statusFilter = cmd.optString("status", "all").trim().toLowerCase(Locale.US);
+        int waiting = 0, handled = 0;
+        if (approvals != null) {
+            for (int i = 0; i < approvals.length(); i++) {
+                JSONObject r = approvals.optJSONObject(i);
+                if (r == null) continue;
+                String requester = requesterRoleOf(r);
+                if (!"all".equals(role) && role.length() > 0 && !role.equals(requester)) continue;
+                boolean isWaiting = "approval_pending".equals(r.optString("status")) || "waiting".equals(r.optString("decision"));
+                if (("waiting".equals(statusFilter) || "pending".equals(statusFilter)) && !isWaiting) continue;
+                if (("handled".equals(statusFilter) || "done".equals(statusFilter)) && isWaiting) continue;
+                filtered.put(r);
+                if (isWaiting) waiting++; else handled++;
+            }
+        }
+        return new JSONObject().put("ok", true)
+                .put("month", s.optString("month"))
+                .put("requester_role", role.length() == 0 ? "all" : role)
+                .put("status_filter", statusFilter.length() == 0 ? "all" : statusFilter)
+                .put("approval_count", filtered.length())
+                .put("pending_count", waiting)
+                .put("handled_count", handled)
+                .put("approval_records", filtered);
     }
 
     public static JSONObject setRules(Context ctx, JSONObject cmd) throws Exception {
@@ -243,7 +286,10 @@ public class WalletState {
 
     public static JSONObject submitApprovalRequest(Context ctx, JSONObject data) throws Exception {
         double amount = data.optDouble("amount", 0);
-        if (amount <= 0) return new JSONObject().put("ok", false).put("error", "amount_required");
+        if (amount < 0) return new JSONObject().put("ok", false).put("error", "amount_invalid");
+        String requester = normalizeApprovalRole(data.optString("requester_role", data.optString("requester", "")));
+        if (requester.length() == 0) requester = "mcp".equals(data.optString("source", "")) || "companion".equals(data.optString("created_by", "")) ? "companion" : "user";
+        String approver = "companion".equals(requester) ? "user" : "companion";
         JSONObject r = new JSONObject();
         long now = data.optLong("created_at_ms", System.currentTimeMillis());
         r.put("id", data.optString("id", UUID.randomUUID().toString()));
@@ -257,9 +303,16 @@ public class WalletState {
         r.put("necessity", data.optInt("necessity", 3));
         r.put("impulse", data.optInt("impulse", 3));
         r.put("source", data.optString("source", "manual"));
+        r.put("requester_role", requester);
+        r.put("approver_role", approver);
+        r.put("requester_name", "companion".equals(requester) ? AppPrefs.companionName(ctx) : AppPrefs.userName(ctx));
+        r.put("approver_name", "companion".equals(approver) ? AppPrefs.companionName(ctx) : AppPrefs.userName(ctx));
         r.put("status", "approval_pending");
         r.put("decision", "waiting");
-        r.put("approval_message", data.optString("approval_message", "已提交给" + AppPrefs.companionName(ctx) + "审批，等待回复。"));
+        String defaultMsg = "companion".equals(requester)
+                ? AppPrefs.companionName(ctx) + "提交给你处理，等待回复。"
+                : "已提交给" + AppPrefs.companionName(ctx) + "审批，等待回复。";
+        r.put("approval_message", data.optString("approval_message", defaultMsg));
         r.put("created_at_ms", now);
         r.put("created_at_local", formatLocal(now));
         JSONArray arr = records(ctx);
@@ -273,12 +326,12 @@ public class WalletState {
 
     public static JSONObject decideApproval(Context ctx, JSONObject cmd) throws Exception {
         String id = cmd.optString("id", "");
-        String decision = cmd.optString("decision", "approved");
+        String decision = cmd.optString("decision", cmd.optString("status", "approved"));
         String status = "approval_approved";
-        if ("reject".equals(decision) || "rejected".equals(decision) || "deny".equals(decision)) { decision = "rejected"; status = "approval_rejected"; }
-        else if ("delay".equals(decision) || "delayed".equals(decision)) { decision = "delayed"; status = "approval_delayed"; }
+        if ("reject".equals(decision) || "rejected".equals(decision) || "deny".equals(decision) || "no".equals(decision)) { decision = "rejected"; status = "approval_rejected"; }
+        else if ("delay".equals(decision) || "delayed".equals(decision) || "hold".equals(decision) || "later".equals(decision)) { decision = "delayed"; status = "approval_delayed"; }
         else decision = "approved";
-        String message = cmd.optString("message", cmd.optString("approval_message", defaultApprovalMessage(decision)));
+        String message = cmd.optString("message", cmd.optString("approval_message", cmd.optString("note", defaultApprovalMessage(decision))));
         JSONArray arr = records(ctx);
         JSONArray next = new JSONArray();
         JSONObject found = null;
@@ -290,7 +343,9 @@ public class WalletState {
                 found.put("status", status);
                 found.put("decision", decision);
                 found.put("approval_message", message);
-                found.put("approved_by", cmd.optString("approved_by", AppPrefs.companionName(ctx)));
+                String approverRole = found.optString("approver_role", "companion");
+                String defaultApprover = "user".equals(approverRole) ? AppPrefs.userName(ctx) : AppPrefs.companionName(ctx);
+                found.put("approved_by", cmd.optString("approved_by", cmd.optString("handler_name", defaultApprover)));
                 found.put("decided_at_ms", System.currentTimeMillis());
                 found.put("decided_at_local", formatLocal(System.currentTimeMillis()));
                 next.put(found);
@@ -300,6 +355,19 @@ public class WalletState {
         saveRecords(ctx, next);
         DebugState.append(ctx, "小金库审批已处理：" + found.optString("decision") + " ¥" + money(found.optDouble("amount", 0)));
         return new JSONObject().put("ok", true).put("approval", found).put("wallet_state", collect(ctx));
+    }
+
+    private static String requesterRoleOf(JSONObject r) {
+        if (r == null) return "user";
+        String role = r.optString("requester_role", "").trim().toLowerCase(Locale.US);
+        return "companion".equals(role) ? "companion" : "user";
+    }
+
+    private static String normalizeApprovalRole(String raw) {
+        String v = raw == null ? "" : raw.trim().toLowerCase(Locale.US);
+        if ("ai".equals(v) || "bot".equals(v) || "companion".equals(v) || "partner".equals(v) || "ta".equals(v)) return "companion";
+        if ("user".equals(v) || "me".equals(v) || "human".equals(v) || "owner".equals(v)) return "user";
+        return "";
     }
 
     private static String defaultApprovalMessage(String decision) {
@@ -352,6 +420,7 @@ public class WalletState {
         r.put("item", item);
         r.put("note", item);
         r.put("source", "mcp");
+        r.put("requester_role", cmd.optString("requester_role", "user"));
         r.put("approval_message", message);
         JSONObject created = submitApprovalRequest(ctx, r).optJSONObject("approval");
         if (created == null) return new JSONObject().put("ok", false).put("error", "approval_create_failed");
