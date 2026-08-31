@@ -144,7 +144,9 @@ const APP_TARGET_ACTIONS = new Set([
   "open_app", "screen_break_app", "start_screen_break", "screen_break", "end_screen_break", "stop_screen_break",
   "temporary_screen_break_release", "temporary_screen_release", "extend_screen_break", "deny_screen_break_release_request",
   "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
-  "remove_screen_break_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase"
+  "remove_screen_break_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase",
+    "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "confirm_wallet_record",
+    "decide_wallet_approval", "set_wallet_rules", "wallet_approval_request"
 ]);
 
 const COMPANION_ACTION_META = {
@@ -801,8 +803,42 @@ async function fetchLatestImage() {
   return { mimeType, data: buf.toString("base64"), bytes: buf.byteLength };
 }
 
+
+async function getCachedWalletState(device_id = DEFAULT_DEVICE) {
+  const res = await linjianFetch(`/api/device/state?device_id=${encodeURIComponent(device_id)}`, { timeout_ms: QUICK_FETCH_TIMEOUT_MS });
+  const data = await res.json();
+  const state = data?.state || data?.life_state || {};
+  const wallet = state?.wallet_state || state?.life_state?.wallet_state || null;
+  return { ok: !!wallet, device_id, wallet_state: wallet, raw_updated_at: state?.updated_at || state?.updated_at_local || "", direct: true };
+}
+
+function parsePhoneResult(command) {
+  if (!command || !command.result) return null;
+  try { return JSON.parse(command.result); } catch { return command.result; }
+}
+
+async function runWalletCommand(action, args = {}, waitSeconds = DEFAULT_COMMAND_WAIT_SECONDS) {
+  const device_id = args.device_id || DEFAULT_DEVICE;
+  const payload = { action, ...args, device_id };
+  const queued = await postCommand({ action, device_id, payload });
+  const id = queued?.command?.id;
+  const observed = id ? await waitCommand(id, waitSeconds) : null;
+  const command = observed?.command || queued?.command || null;
+  return { ok: command?.status === "completed", queued, observed_status: command, phone_result: parsePhoneResult(command), note: "小金库数据默认保存在手机本地；写入与指定月份读取通过手机端命令完成。" };
+}
+
+function walletMonthStateFromCache(wallet, month = "") {
+  if (!wallet) return null;
+  const target = String(month || "").trim();
+  if (!target || wallet.month === target) return wallet;
+  const months = wallet.month_summaries || [];
+  const summary = Array.isArray(months) ? months.find((m) => m && m.month === target) : null;
+  if (!summary) return null;
+  return { ok: true, device_id: wallet.device_id || DEFAULT_DEVICE, wallet_version: wallet.wallet_version || "public-local", month: target, month_label: summary.label || target, monthly_budget: summary.monthly_budget, spent: summary.spent, income: summary.income, remaining: summary.remaining, saved_estimate: summary.saved_estimate, recent_records: [], category_totals: {}, summary_only: true, note: "缓存里只有该月份摘要；需要明细时请用 get_wallet_month_state 等待手机端返回。" };
+}
+
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.7.3" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.7.4" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
@@ -810,7 +846,9 @@ function makeServer() {
     "phone_screen_off", "send_notification", "set_alarm", "run_sequence", "run_preset", "save_known_app", "screen_break_app",
     "temporary_screen_break_release", "end_screen_break", "extend_screen_break", "deny_screen_break_release_request",
     "get_screen_break_state", "get_lock_state", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
-    "list_screen_break_apps", "list_lockable_apps", "add_screen_break_app", "add_locked_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase"
+    "list_screen_break_apps", "list_lockable_apps", "add_screen_break_app", "add_locked_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase",
+    "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "confirm_wallet_record",
+    "decide_wallet_approval", "set_wallet_rules", "wallet_approval_request"
   ]);
   const originalTool = server.tool.bind(server);
   server.tool = (...args) => {
@@ -1018,6 +1056,74 @@ function makeServer() {
   });
 
 
+
+
+  server.tool("get_wallet_state", "读取掌心窗小金库当前月份：预算、已花、剩余、待审批和最近账单。小金库默认保存在手机本地；本工具优先读取手机最近上报的授权摘要。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
+    const direct = await getCachedWalletState(device_id);
+    if (direct.wallet_state) return textResult(direct);
+    const result = await runWalletCommand("get_wallet_state", { device_id }, DEFAULT_COMMAND_WAIT_SECONDS);
+    return textResult(result);
+  });
+
+  server.tool("get_wallet_month_state", "读取小金库指定月份的预算、支出、分类和账单明细。若缓存只有摘要，会下发命令让手机端读取本地账本后回传。", { month: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ month = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const direct = await getCachedWalletState(device_id).catch(() => ({}));
+    const cached = walletMonthStateFromCache(direct.wallet_state, month);
+    if (cached && !cached.summary_only) return textResult({ ok: true, device_id, wallet_state: cached, direct: true });
+    const result = await runWalletCommand("get_wallet_month_state", { month, device_id }, wait_seconds);
+    if (cached) result.cached_summary = cached;
+    return textResult(result);
+  });
+
+  server.tool("list_wallet_months", "读取小金库历史月份摘要，包括每月已花、笔数和剩余预算。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const direct = await getCachedWalletState(device_id).catch(() => ({}));
+    const months = direct.wallet_state?.month_summaries;
+    if (months) return textResult({ ok: true, device_id, month_summaries: months, direct: true });
+    return textResult(await runWalletCommand("list_wallet_months", { device_id }, wait_seconds));
+  });
+
+  server.tool("list_wallet_pending", "读取小金库待审批/待确认列表。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const direct = await getCachedWalletState(device_id).catch(() => ({}));
+    const w = direct.wallet_state;
+    if (w) return textResult({ ok: true, device_id, pending_count: w.pending_count || 0, approval_count: w.approval_count || 0, pending_records: w.pending_records || [], approval_records: w.approval_records || [], direct: true });
+    return textResult(await runWalletCommand("list_wallet_pending", { device_id }, wait_seconds));
+  });
+
+  server.tool("list_wallet_approvals", "读取小金库花钱审批申请和审批结果。用于陪伴对象查看用户提交的花钱申请，并决定通过、延迟或驳回。", { month: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ month = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const direct = await getCachedWalletState(device_id).catch(() => ({}));
+    const w = direct.wallet_state;
+    if (w && (!month || w.month === month)) return textResult({ ok: true, device_id, month: w.month, pending_count: w.pending_count || 0, approval_count: w.approval_count || 0, approval_records: w.approval_records || [], direct: true });
+    return textResult(await runWalletCommand("list_wallet_approvals", { month, device_id }, wait_seconds));
+  });
+
+  server.tool("add_wallet_record", "给小金库添加一笔账单；可设为待确认。账本写入手机本地。", { amount: z.number(), type: z.string().default("expense"), category: z.string().default("其他"), merchant: z.string().default(""), note: z.string().default(""), require_confirm: z.boolean().default(false), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("add_wallet_record", args, args.wait_seconds));
+  });
+
+  server.tool("submit_wallet_approval", "提交一条花钱申请，等待陪伴对象审批。", { amount: z.number(), item: z.string().default(""), category: z.string().default("其他"), merchant: z.string().default(""), reason: z.string().default(""), necessity: z.number().int().min(1).max(5).default(3), impulse: z.number().int().min(1).max(5).default(3), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("submit_wallet_approval", args, args.wait_seconds));
+  });
+
+  server.tool("decide_wallet_approval", "审批一条小金库花钱申请，并写入陪伴对象的审批意见。", { id: z.string(), decision: z.string().default("approved"), message: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("decide_wallet_approval", args, args.wait_seconds));
+  });
+
+  server.tool("confirm_wallet_record", "确认、忽略或修改一条小金库待确认账单。", { id: z.string(), decision: z.string().default("confirm"), amount: z.number().default(0), category: z.string().default(""), note: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("confirm_wallet_record", args, args.wait_seconds));
+  });
+
+  server.tool("get_wallet_rules", "读取小金库预算规则和自动识别模式。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async ({ device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const direct = await getCachedWalletState(device_id).catch(() => ({}));
+    if (direct.wallet_state?.rules) return textResult({ ok: true, device_id, rules: direct.wallet_state.rules, direct: true });
+    return textResult(await runWalletCommand("get_wallet_rules", { device_id }, wait_seconds));
+  });
+
+  server.tool("set_wallet_rules", "设置小金库预算、审批线、自动识别模式和分类上限。", { monthly_budget: z.number().default(0), approval_threshold: z.number().default(0), auto_mode: z.string().default(""), category_limits: z.string().default(""), deep_night_reminder: z.boolean().default(true), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("set_wallet_rules", args, args.wait_seconds));
+  });
+
+  server.tool("wallet_approval_request", "用户想买东西时，让陪伴对象即时花钱审批：通过、延迟或驳回，并记录审批意见。", { amount: z.number(), item: z.string().default(""), category: z.string().default("其他"), merchant: z.string().default(""), reason: z.string().default(""), necessity: z.number().int().min(1).max(5).default(3), impulse: z.number().int().min(1).max(5).default(3), decision: z.string().default(""), message: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("wallet_approval_request", args, args.wait_seconds));
+  });
 
   server.tool("get_guardian_calendar", "读取掌心窗『守护日历』：最近纪念日/节日/倒数日、提前三天横幅提醒、分组与生活状态层 calendar_state。当用户提到七夕、生日、绑定日、纪念日、日历、倒数日或重要日期时可调用。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
     const res = await linjianFetch(`/api/life_state?device_id=${encodeURIComponent(device_id)}`);
@@ -1811,7 +1917,7 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.7.3",
+  version: "0.3.7.4",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",
@@ -1820,7 +1926,7 @@ app.get("/health", (_req, res) => res.json({
   guardian_day_tools: true,
   diary_tools: true,
   diary_storage: "phone_local",
-  stability_note: "v0.3.7.3 修复归电目标包名跳转与陪伴页行动记录同步，保留限流保护。"
+  stability_note: "v0.3.7.4 修复归电目标包名跳转与陪伴页行动记录同步，保留限流保护。"
 }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }

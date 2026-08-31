@@ -1,20 +1,27 @@
-# 掌心窗公开版 v0.3.7.3
+# 掌心窗公开版 v0.3.7.4
 
-## v0.3.7.3 修复重点
+## v0.3.7.4 小金库更新
+- 守护页新增“小金库”：本地记账、预算规则、历史月份侧边栏、待审批详情。
+- 小金库默认保存在手机本地；MCP/AI 只能在用户配置连接后读取预算摘要、最近记录和待审批。
+- 陪伴者名字跟随设置页“陪伴者/AI 名称”，例如会显示“等待陪伴者审批”。
+- 开启通知读取权限后，可在本地识别疑似支付通知并生成待确认账单；不读取支付密码，不接管银行卡。
+
+
+## v0.3.7.4 修复重点
 
 - 修复归电来电页「接通」后没有跳转到归电设置里指定包名的问题：接通后会读取 `guidian_target_package`，关闭来电页后再按包名启动目标 App，失败时写入调试日志并提示原因。
 - 修复陪伴页「xx 的行动」不显示 AI/MCP 工具调用记录的问题：MCP 行动会同步写入统一行动日志，手机端同步时会合并本地与远端行动记录，不再被本地旧记录遮挡。
 - Railway 文档改为手动双服务部署说明，移除 README 中未生成模板码的一键部署引导，避免用户误把 server 域名当成 MCP 域名。
 - 今日页「此刻状态」卡片新增媒体状态：用户开启通知使用权后，可显示正在播放的歌曲/音频标题、歌手、播放状态与来源 App。
 
-## v0.3.7.3 快速修复
+## v0.3.7.4 快速修复
 
 - 补充 `server/Dockerfile`、`.dockerignore` 与 `requirements.txt`，避免 Railway 在 server 服务构建阶段无法识别 Python 项目。Railway server 服务现在推荐：Root Directory=`server`，Build Command 留空，Start Command 留空，由 Dockerfile 启动 `python linjian_server.py`。
 
 - 修复网页端 MCP 管理器连接公开版 MCP 时的跨域响应头问题。
 - 设置页「连接设置」会自动保存服务器地址、Token、设备 ID 与轮询间隔，杀掉后台再打开也会保留。
 
-## v0.3.7.3 日记与守护日历更新
+## v0.3.7.4 日记与守护日历更新
 
 - 守护日历事件补充稳定 ID，支持在日期详情卡中编辑、确认删除，并兼容没有 ID 的旧数据。
 - MCP 完善 `list_guardian_days`、`add_guardian_day`、`update_guardian_day`、`delete_guardian_day`。
@@ -89,15 +96,15 @@ update.json   版本更新信息
 
 1. 将源码包解压并覆盖到公开仓库根目录，确保 `.github`、`android`、`server`、`mcp` 位于根目录。
 2. 打开 GitHub 仓库 → **Actions** → **Build Android Public APK** → **Run workflow**。
-3. 构建成功后下载 `zhangxinchuang-public-v0.3.7.3-apk` artifact。
+3. 构建成功后下载 `zhangxinchuang-public-v0.3.7.4-apk` artifact。
 
 构建产物为：
 
 ```text
-android/Zhangxinchuang-public-v0.3.7.3.apk
+android/Zhangxinchuang-public-v0.3.7.4.apk
 ```
 
-版本名 `0.3.7.3`，版本码 `30703`。
+版本名 `0.3.7.4`，版本码 `30704`。
 
 ### 固定签名
 
