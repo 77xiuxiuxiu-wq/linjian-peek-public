@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""掌心窗公开版 v0.3.7.6 unified server.
+"""掌心窗公开版 v0.3.7.7 unified server.
 
 零依赖标准库版，负责：
 1. 给手机端下发 peek / open_app / back / home / recents / tap / swipe / set_alarm / send_notification 命令；
@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlparse
 DEFAULT_PORT = 8513
 DEFAULT_KEEP = 3
 MAX_UPLOAD_BYTES = 24 * 1024 * 1024
-VERSION = "0.3.7.6"
+VERSION = "0.3.7.7"
 DEFAULT_DEVICE = os.environ.get("LINJIAN_DEFAULT_DEVICE", "android-phone")
 ACTIVITY_EVENT_LIMIT = 500
 
@@ -42,7 +42,7 @@ KNOWN_APPS = {
     "Speedcat": "", "speedcat": "",
 }
 SENSITIVE_PACKAGES = {"com.eg.android.AlipayGphone", "com.tencent.mm.plugin.wallet"}
-ALLOWED_ACTIONS = {"noop", "peek", "open_app", "home", "back", "recents", "screen_off", "turn_screen_off", "lock_screen", "phone_screen_off", "tap", "swipe", "set_alarm", "send_notification", "run_sequence", "save_known_app", "get_screen_nodes", "tap_text", "input_text", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request", "get_lock_state", "set_emergency_passphrase", "add_locked_app", "remove_locked_app", "list_lockable_apps", "screen_break_app", "start_screen_break", "screen_break", "end_screen_break", "stop_screen_break", "temporary_screen_break_release", "temporary_screen_release", "extend_screen_break", "deny_screen_break_release_request", "deny_break_release_request", "get_screen_break_state", "set_screen_break_passphrase", "add_screen_break_app", "remove_screen_break_app", "list_screen_break_apps", "get_guidian_state", "set_guidian_config", "trigger_guidian", "mark_guidian_returned", "get_calendar_state", "upsert_calendar_event", "add_calendar_event", "delete_calendar_event", "create_diary_book", "list_diary_books", "rename_diary_book", "update_diary_book_cover", "write_diary_entry", "list_diary_entries", "read_diary_entry", "search_diary_entries", "update_diary_entry", "delete_diary_entry", "delete_diary_book", "get_wallet_state", "get_wallet_month_state", "list_wallet_months", "add_wallet_record", "list_wallet_pending", "list_wallet_approvals", "list_companion_wallet_requests", "list_wallet_request_results", "submit_wallet_approval", "submit_companion_wallet_request", "decide_wallet_approval", "save_wallet_request_result", "confirm_wallet_record", "get_wallet_rules", "set_wallet_rules", "wallet_approval_request"}
+ALLOWED_ACTIONS = {"noop", "peek", "open_app", "home", "back", "recents", "screen_off", "turn_screen_off", "lock_screen", "phone_screen_off", "tap", "swipe", "set_alarm", "send_notification", "run_sequence", "save_known_app", "get_screen_nodes", "tap_text", "input_text", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request", "get_lock_state", "set_emergency_passphrase", "add_locked_app", "remove_locked_app", "list_lockable_apps", "screen_break_app", "start_screen_break", "screen_break", "end_screen_break", "stop_screen_break", "temporary_screen_break_release", "temporary_screen_release", "extend_screen_break", "deny_screen_break_release_request", "deny_break_release_request", "get_screen_break_state", "set_screen_break_passphrase", "add_screen_break_app", "remove_screen_break_app", "list_screen_break_apps", "get_guidian_state", "set_guidian_config", "trigger_guidian", "mark_guidian_returned", "get_calendar_state", "upsert_calendar_event", "add_calendar_event", "delete_calendar_event", "create_diary_book", "list_diary_books", "rename_diary_book", "update_diary_book_cover", "write_diary_entry", "list_diary_entries", "read_diary_entry", "search_diary_entries", "update_diary_entry", "delete_diary_entry", "delete_diary_book", "get_wallet_state", "get_wallet_month_state", "list_wallet_months", "add_wallet_record", "list_wallet_pending", "list_wallet_approvals", "list_companion_wallet_requests", "list_wallet_request_results", "submit_wallet_approval", "submit_companion_wallet_request", "decide_wallet_approval", "save_wallet_request_result", "update_wallet_request_result", "save_user_wallet_request_result", "edit_wallet_record", "update_wallet_record", "delete_wallet_record", "remove_wallet_record", "confirm_wallet_record", "get_wallet_rules", "set_wallet_rules", "wallet_approval_request"}
 
 
 def load_dotenv(path: Path) -> None:
@@ -428,7 +428,7 @@ class Handler(BaseHTTPRequestHandler):
                 "get_screen_break_state": "查看应用门禁状态", "get_lock_state": "查看应用门禁状态", "list_screen_break_apps": "查看可管理应用", "list_lockable_apps": "查看可管理应用",
                 "add_screen_break_app": "加入门禁管理", "add_locked_app": "加入门禁管理", "remove_locked_app": "移除门禁应用", "set_screen_break_passphrase": "设置门禁口令", "set_emergency_passphrase": "设置门禁口令",
                 "get_calendar_state": "查看守护日历", "upsert_calendar_event": "更新守护日历",
-                "get_wallet_state": "读取小金库", "get_wallet_month_state": "读取小金库月份", "list_wallet_months": "读取小金库月份", "list_wallet_pending": "读取小金库待处理", "list_wallet_approvals": "读取小金库审批", "add_wallet_record": "添加小金库账单", "submit_wallet_approval": "提交小金库审批", "submit_companion_wallet_request": "陪伴者提交申请", "list_companion_wallet_requests": "查看陪伴者申请结果", "list_wallet_request_results": "查看小金库申请结果", "decide_wallet_approval": "保存小金库处理结果", "save_wallet_request_result": "保存小金库处理结果", "confirm_wallet_record": "确认小金库账单", "get_wallet_rules": "读取小金库规则", "set_wallet_rules": "设置小金库规则", "wallet_approval_request": "小金库即时审批",
+                "get_wallet_state": "读取小金库", "get_wallet_month_state": "读取小金库月份", "list_wallet_months": "读取小金库月份", "list_wallet_pending": "读取小金库待处理", "list_wallet_approvals": "读取小金库审批", "add_wallet_record": "添加小金库账单", "submit_wallet_approval": "提交小金库审批", "submit_companion_wallet_request": "陪伴者提交申请", "list_companion_wallet_requests": "查看陪伴者申请结果", "list_wallet_request_results": "查看小金库申请结果", "decide_wallet_approval": "保存小金库处理结果", "save_wallet_request_result": "保存小金库处理结果", "update_wallet_request_result": "保存小金库处理结果", "save_user_wallet_request_result": "保存用户处理结果", "edit_wallet_record": "编辑小金库账单", "delete_wallet_record": "删除小金库账单", "confirm_wallet_record": "确认小金库账单", "get_wallet_rules": "读取小金库规则", "set_wallet_rules": "设置小金库规则", "wallet_approval_request": "小金库即时审批",
                 "get_screen_nodes": "查看当前页面",
                 "peek": "查看屏幕", "run_sequence": "执行组合动作", "home": "回到手机桌面", "back": "返回上一页", "recents": "打开最近任务"
             }
