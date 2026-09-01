@@ -84,7 +84,7 @@ public class WalletState {
             for (Map.Entry<String, Double> e : cat.entrySet()) cats.put(e.getKey(), round2(e.getValue()));
             out.put("ok", true);
             out.put("device_id", AppPrefs.device(ctx));
-            out.put("wallet_version", "0.3.7.7-public-wallet");
+            out.put("wallet_version", "0.3.7.8-public-wallet-auto-record");
             out.put("month", month);
             out.put("current_month", currentMonth);
             out.put("is_current_month", currentMonth.equals(month));
@@ -274,6 +274,7 @@ public class WalletState {
         r.put("source_app", data.optString("source_app", ""));
         r.put("source_package", data.optString("source_package", ""));
         r.put("source_key", data.optString("source_key", ""));
+        if (data.has("approval_id")) r.put("approval_id", data.optString("approval_id", ""));
         r.put("status", status == null || status.length() == 0 ? "confirmed" : status);
         r.put("created_at_ms", now);
         r.put("created_at_local", formatLocal(now));
@@ -340,6 +341,11 @@ public class WalletState {
         JSONArray arr = records(ctx);
         JSONArray next = new JSONArray();
         JSONObject found = null;
+        JSONObject autoRecord = null;
+        boolean shouldAutoRecord = false;
+        String recordId = "";
+        String sourceKey = id.length() == 0 ? "" : ("approval:" + id);
+        long decidedAt = System.currentTimeMillis();
         for (int i = 0; i < arr.length(); i++) {
             JSONObject r = arr.optJSONObject(i);
             if (r == null) continue;
@@ -353,15 +359,44 @@ public class WalletState {
                 String approverRole = found.optString("approver_role", "companion");
                 String defaultApprover = "user".equals(approverRole) ? AppPrefs.userName(ctx) : AppPrefs.companionName(ctx);
                 found.put("approved_by", cmd.optString("approved_by", cmd.optString("handler_name", defaultApprover)));
-                found.put("decided_at_ms", System.currentTimeMillis());
-                found.put("decided_at_local", formatLocal(System.currentTimeMillis()));
+                found.put("decided_at_ms", decidedAt);
+                found.put("decided_at_local", formatLocal(decidedAt));
+                double amount = Math.max(0, found.optDouble("amount", 0));
+                shouldAutoRecord = "approved".equals(decision) && amount > 0
+                        && found.optString("wallet_record_id", found.optString("linked_wallet_record_id", "")).length() == 0
+                        && !hasSourceKey(arr, sourceKey);
+                if (shouldAutoRecord) {
+                    recordId = UUID.randomUUID().toString();
+                    found.put("wallet_record_id", recordId);
+                    found.put("linked_wallet_record_id", recordId);
+                    found.put("auto_recorded", true);
+                    found.put("auto_record_source_key", sourceKey);
+                    if (message.length() == 0 || defaultApprovalMessage("approved").equals(message)) found.put("approval_message", defaultApprovalMessage("approved"));
+                }
                 next.put(found);
             } else next.put(r);
         }
         if (found == null) return new JSONObject().put("ok", false).put("error", "approval_not_found").put("id", id);
         saveRecords(ctx, next);
-        DebugState.append(ctx, "小金库审批已处理：" + found.optString("decision") + " ¥" + money(found.optDouble("amount", 0)));
-        return new JSONObject().put("ok", true).put("approval", found).put("wallet_state", collect(ctx));
+        if (shouldAutoRecord) {
+            JSONObject rec = new JSONObject();
+            rec.put("id", recordId);
+            rec.put("amount", round2(found.optDouble("amount", 0)));
+            rec.put("type", "expense");
+            rec.put("category", found.optString("category", "其他"));
+            rec.put("merchant", found.optString("merchant", ""));
+            rec.put("note", firstText(found, found.optString("item", "审批通过支出"), "item", "note", "title", "purpose", "content", "name", "reason"));
+            rec.put("source", "wallet_approval");
+            rec.put("source_key", sourceKey);
+            rec.put("approval_id", id);
+            rec.put("created_at_ms", decidedAt);
+            JSONObject added = addRecord(ctx, rec, "confirmed");
+            autoRecord = added.optJSONObject("record");
+        }
+        DebugState.append(ctx, "小金库审批已处理：" + found.optString("decision") + " ¥" + money(found.optDouble("amount", 0)) + (shouldAutoRecord ? "，已自动入账" : ""));
+        JSONObject out = new JSONObject().put("ok", true).put("approval", found).put("wallet_state", collect(ctx));
+        if (autoRecord != null) out.put("auto_record", autoRecord);
+        return out;
     }
 
     public static JSONObject updateRecord(Context ctx, JSONObject cmd) throws Exception {
@@ -428,7 +463,7 @@ public class WalletState {
     private static String defaultApprovalMessage(String decision) {
         if ("rejected".equals(decision)) return "这笔先不批，先冷静一下。";
         if ("delayed".equals(decision)) return "先等 20 分钟，真的还想买再回来申请。";
-        return "通过，买完记得回小金库记一笔。";
+        return "通过，已自动记入小金库支出。";
     }
 
     public static JSONObject confirmRecord(Context ctx, JSONObject cmd) throws Exception {
@@ -467,7 +502,7 @@ public class WalletState {
         String message = cmd.optString("message", "");
         if (decision.length() == 0) {
             decision = "approved";
-            message = "通过。记得买完回来给小金库记一笔。";
+            message = "通过。已自动记入小金库支出。";
             if (amount >= approvalThreshold(ctx) && impulse >= 4 && necessity <= 3) { decision = "delayed"; message = "先冷静 20 分钟。真的还想要再回来申请。"; }
             if (amount > monthlyBudget(ctx) * 0.35 && necessity <= 2) { decision = "rejected"; message = "这笔太重了，今天先不买。"; }
         }

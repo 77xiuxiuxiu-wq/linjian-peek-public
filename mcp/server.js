@@ -146,7 +146,7 @@ const APP_TARGET_ACTIONS = new Set([
   "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
   "remove_screen_break_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase",
     "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "submit_companion_wallet_request", "list_companion_wallet_requests", "list_wallet_request_results", "confirm_wallet_record",
-    "decide_wallet_approval", "save_wallet_request_result", "update_wallet_request_result", "save_user_wallet_request_result", "edit_wallet_record", "delete_wallet_record", "set_wallet_rules", "wallet_approval_request"
+    "decide_wallet_approval", "save_wallet_request_result", "update_wallet_request_result", "save_user_wallet_request_result", "edit_wallet_record", "delete_wallet_record", "set_wallet_rules", "wallet_approval_request", "get_takeout_state", "set_takeout_budget", "set_takeout_preferences", "add_takeout_card", "save_takeout_card", "update_takeout_card", "remove_takeout_card", "delete_takeout_card", "list_takeout_cards", "list_takeout_meals", "remember_takeout_meal", "remember_current_takeout_meal", "suggest_takeout_options", "create_takeout_plan", "takeout_wallet_request", "open_takeout_link", "open_takeout_plan", "copy_takeout_note", "record_takeout_order", "prepare_takeout_checkout", "auto_takeout_checkout", "get_takeout_checkout_status", "cancel_takeout_checkout"
 ]);
 
 const COMPANION_ACTION_META = {
@@ -870,7 +870,7 @@ function walletApprovalSummary(records = []) {
 }
 
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.7.7" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.7.8" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
@@ -880,7 +880,7 @@ function makeServer() {
     "get_screen_break_state", "get_lock_state", "lock_app", "unlock_app", "temporary_unlock_app", "extend_lock", "deny_unlock_request",
     "list_screen_break_apps", "list_lockable_apps", "add_screen_break_app", "add_locked_app", "remove_locked_app", "set_screen_break_passphrase", "set_emergency_passphrase",
     "get_wallet_month_state", "add_wallet_record", "list_wallet_pending", "submit_wallet_approval", "submit_companion_wallet_request", "list_companion_wallet_requests", "list_wallet_request_results", "confirm_wallet_record",
-    "decide_wallet_approval", "save_wallet_request_result", "update_wallet_request_result", "save_user_wallet_request_result", "edit_wallet_record", "delete_wallet_record", "set_wallet_rules", "wallet_approval_request"
+    "decide_wallet_approval", "save_wallet_request_result", "update_wallet_request_result", "save_user_wallet_request_result", "edit_wallet_record", "delete_wallet_record", "set_wallet_rules", "wallet_approval_request", "get_takeout_state", "set_takeout_budget", "set_takeout_preferences", "add_takeout_card", "save_takeout_card", "update_takeout_card", "remove_takeout_card", "delete_takeout_card", "list_takeout_cards", "list_takeout_meals", "remember_takeout_meal", "remember_current_takeout_meal", "suggest_takeout_options", "create_takeout_plan", "takeout_wallet_request", "open_takeout_link", "open_takeout_plan", "copy_takeout_note", "record_takeout_order", "prepare_takeout_checkout", "auto_takeout_checkout", "get_takeout_checkout_status", "cancel_takeout_checkout"
   ]);
   const originalTool = server.tool.bind(server);
   server.tool = (...args) => {
@@ -1201,6 +1201,95 @@ function makeServer() {
 
   server.tool("wallet_approval_request", "用户想买东西时，让陪伴对象即时花钱审批：通过、延迟或驳回，并记录审批意见。", { amount: z.number(), item: z.string().default(""), category: z.string().default("其他"), merchant: z.string().default(""), reason: z.string().default(""), necessity: z.number().int().min(1).max(5).default(3), impulse: z.number().int().min(1).max(5).default(3), decision: z.string().default(""), message: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
     return textResult(await runWalletCommand("wallet_approval_request", args, args.wait_seconds));
+  });
+
+
+  server.tool("get_takeout_state", "读取外卖小助手状态：单餐预算、今日外卖预算、口味偏好、常点外卖库和最近计划。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("get_takeout_state", args, args.wait_seconds));
+  });
+
+  server.tool("set_takeout_budget", "设置外卖小助手的单餐预算、今日外卖预算和口味偏好。", { meal_budget: z.number().nonnegative().optional(), day_budget: z.number().nonnegative().optional(), taste_note: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("set_takeout_budget", args, args.wait_seconds));
+  });
+
+  server.tool("add_takeout_card", "保存或更新一张常点套餐。link 可直接传整段分享文本；手机会自动提取纯 URL。可同时保存找菜关键词、自动选择项、备注和金额保护。", { id: z.string().default(""), title: z.string().min(1), platform: z.string().default(""), link: z.string().default(""), direct_link: z.string().default(""), aliases: z.array(z.string()).default([]), items: z.string().default(""), item_query: z.string().default(""), choices: z.array(z.string()).default([]), price_min: z.number().nonnegative().default(0), price_max: z.number().nonnegative().default(0), checkout_max: z.number().nonnegative().default(0), strict_budget: z.boolean().default(false), note: z.string().default(""), tags: z.string().default(""), coupon_mode: z.string().default("platform_default"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("add_takeout_card", args, args.wait_seconds));
+  });
+
+  server.tool("save_takeout_card", "保存或覆盖一张常点外卖卡片，等同于 add_takeout_card。", { id: z.string().default(""), title: z.string().min(1), platform: z.string().default(""), link: z.string().default(""), direct_link: z.string().default(""), aliases: z.array(z.string()).default([]), items: z.string().default(""), item_query: z.string().default(""), choices: z.array(z.string()).default([]), price_min: z.number().nonnegative().default(0), price_max: z.number().nonnegative().default(0), checkout_max: z.number().nonnegative().default(0), strict_budget: z.boolean().default(false), note: z.string().default(""), tags: z.string().default(""), coupon_mode: z.string().default("platform_default"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("save_takeout_card", args, args.wait_seconds));
+  });
+
+  server.tool("update_takeout_card", "编辑一张常点外卖卡片，可修改菜品、链接、备注、预算保护和标签。", { id: z.string(), title: z.string().default(""), platform: z.string().default(""), link: z.string().default(""), direct_link: z.string().default(""), aliases: z.array(z.string()).default([]), items: z.string().default(""), item_query: z.string().default(""), choices: z.array(z.string()).default([]), price_min: z.number().nonnegative().default(0), price_max: z.number().nonnegative().default(0), checkout_max: z.number().nonnegative().default(0), strict_budget: z.boolean().default(false), note: z.string().default(""), tags: z.string().default(""), coupon_mode: z.string().default("platform_default"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("update_takeout_card", args, args.wait_seconds));
+  });
+
+  server.tool("delete_takeout_card", "删除一张常点外卖卡片。", { id: z.string(), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("delete_takeout_card", args, args.wait_seconds));
+  });
+
+  server.tool("remove_takeout_card", "删除一张常点外卖卡片，等同于 delete_takeout_card。", { id: z.string(), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("remove_takeout_card", args, args.wait_seconds));
+  });
+
+  server.tool("list_takeout_cards", "读取用户保存的常点外卖库。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("list_takeout_cards", args, args.wait_seconds));
+  });
+
+  server.tool("list_takeout_meals", "读取已经记住的多道常点外卖；是 list_takeout_cards 的更直观别名。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("list_takeout_meals", args, args.wait_seconds));
+  });
+
+  server.tool("remember_takeout_meal", "记住一道具体外卖。第一次让用户在外卖 App 打开具体菜品并复制分享链接；以后按名字或 id 直达菜品再点到付款页。", { id: z.string().default(""), title: z.string().default(""), direct_link: z.string().default(""), platform: z.string().default(""), aliases: z.array(z.string()).default([]), choices: z.array(z.string()).default([]), note: z.string().default(""), checkout_max: z.number().nonnegative().default(0), strict_budget: z.boolean().default(false), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("remember_takeout_meal", args, args.wait_seconds));
+  });
+
+  server.tool("remember_current_takeout_meal", "把当前剪贴板或当前外卖分享链接记成一道常点外卖。", { id: z.string().default(""), title: z.string().default(""), direct_link: z.string().default(""), platform: z.string().default(""), aliases: z.array(z.string()).default([]), choices: z.array(z.string()).default([]), note: z.string().default(""), checkout_max: z.number().nonnegative().default(0), strict_budget: z.boolean().default(false), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("remember_current_takeout_meal", args, args.wait_seconds));
+  });
+
+  server.tool("suggest_takeout_options", "从常点外卖库里按预算和口味挑 1-3 个外卖建议；不会自动付款。", { query: z.string().default(""), budget: z.number().nonnegative().optional(), limit: z.number().int().min(1).max(8).default(3), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("suggest_takeout_options", args, args.wait_seconds));
+  });
+
+  server.tool("create_takeout_plan", "基于常点外卖卡片生成点餐行动卡：打开链接、复制备注、是否需要小金库申请。", { card_id: z.string().default(""), query: z.string().default(""), amount: z.number().nonnegative().optional(), items: z.string().default(""), note: z.string().default(""), submit_wallet_request: z.boolean().default(false), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("create_takeout_plan", args, args.wait_seconds));
+  });
+
+  server.tool("takeout_wallet_request", "把一份外卖计划提交到小金库申请，等待处理；审批通过后会自动记入支出，付款仍由用户本人完成。", { card_id: z.string().default(""), query: z.string().default(""), amount: z.number().nonnegative().optional(), reason: z.string().default("想点这份外卖"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("takeout_wallet_request", args, args.wait_seconds));
+  });
+
+  server.tool("open_takeout_link", "打开已保存的外卖链接。只负责跳转，不会确认订单或付款。", { card_id: z.string().default(""), query: z.string().default(""), link: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("open_takeout_link", args, args.wait_seconds));
+  });
+
+  server.tool("open_takeout_plan", "打开最近或指定的外卖计划链接，不会确认订单或付款。", { card_id: z.string().default(""), query: z.string().default(""), link: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("open_takeout_plan", args, args.wait_seconds));
+  });
+
+  server.tool("copy_takeout_note", "复制外卖下单备注，方便用户在外卖 App 里粘贴。", { card_id: z.string().default(""), query: z.string().default(""), note: z.string().default(""), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("copy_takeout_note", args, args.wait_seconds));
+  });
+
+  server.tool("record_takeout_order", "用户付款后，把这顿外卖记入小金库饮食分类。", { amount: z.number().positive(), card_id: z.string().default(""), merchant: z.string().default(""), note: z.string().default("外卖"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("record_takeout_order", args, args.wait_seconds));
+  });
+
+  server.tool("prepare_takeout_checkout", "整单自动点外卖：下发任务后由手机本地按用户保存的饭卡操作，最终停在收银台/付款页，绝不会点击真正支付按钮。", { card_id: z.string().default(""), meal_id: z.string().default(""), query: z.string().default(""), item_query: z.string().default(""), choices: z.array(z.string()).default([]), note: z.string().default(""), max_total: z.number().nonnegative().default(0), strict_budget: z.boolean().default(false), coupon_mode: z.string().default("platform_default"), submit_order: z.boolean().default(true), timeout_seconds: z.number().int().min(45).max(240).default(120), ttl_seconds: z.number().int().min(10).max(120).default(30), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("prepare_takeout_checkout", { ...args, expires_at_ms: Date.now() + (args.ttl_seconds || 30) * 1000 }, args.wait_seconds));
+  });
+
+  server.tool("auto_takeout_checkout", "prepare_takeout_checkout 的别名：把已保存外卖点到付款页，绝不会真正付款。", { card_id: z.string().default(""), meal_id: z.string().default(""), query: z.string().default(""), item_query: z.string().default(""), choices: z.array(z.string()).default([]), note: z.string().default(""), max_total: z.number().nonnegative().default(0), strict_budget: z.boolean().default(false), coupon_mode: z.string().default("platform_default"), submit_order: z.boolean().default(true), timeout_seconds: z.number().int().min(45).max(240).default(120), ttl_seconds: z.number().int().min(10).max(120).default(30), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("auto_takeout_checkout", { ...args, expires_at_ms: Date.now() + (args.ttl_seconds || 30) * 1000 }, args.wait_seconds));
+  });
+
+  server.tool("get_takeout_checkout_status", "读取最近一次整单自动点单状态：当前步骤、是否已到付款页、失败原因等。", { device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("get_takeout_checkout_status", args, args.wait_seconds));
+  });
+
+  server.tool("cancel_takeout_checkout", "停止正在进行的整单自动点单任务。", { reason: z.string().default("user_cancelled"), device_id: z.string().default(DEFAULT_DEVICE), wait_seconds: z.number().int().min(3).max(20).default(8) }, async (args) => {
+    return textResult(await runWalletCommand("cancel_takeout_checkout", args, args.wait_seconds));
   });
 
   server.tool("get_guardian_calendar", "读取掌心窗『守护日历』：最近纪念日/节日/倒数日、提前三天横幅提醒、分组与生活状态层 calendar_state。当用户提到七夕、生日、绑定日、纪念日、日历、倒数日或重要日期时可调用。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
@@ -1995,7 +2084,7 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.7.7",
+  version: "0.3.7.8",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",
@@ -2004,7 +2093,7 @@ app.get("/health", (_req, res) => res.json({
   guardian_day_tools: true,
   diary_tools: true,
   diary_storage: "phone_local",
-  stability_note: "v0.3.7.7 修复双向审批闭环、用户理由写回和账单编辑删除。"
+  stability_note: "v0.3.7.8 新增公开版外卖助手，并让审批通过自动入账。"
 }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }
