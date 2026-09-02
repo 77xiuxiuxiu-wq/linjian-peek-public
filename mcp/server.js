@@ -990,20 +990,20 @@ function registerWalletTakeoutTools(server, { includeUnified = false } = {}) {
 }
 
 function makeWalletTakeoutServer() {
-  const server = new McpServer({ name: "掌心窗小金库外卖", version: "0.3.8.2" });
+  const server = new McpServer({ name: "掌心窗小金库外卖", version: "0.3.8.3" });
   server.tool("linjian_status", "检查掌心窗后端、MCP 配置，以及当前是否使用小金库/外卖专用 schema。", {}, async () => {
     const configErrors = [];
     if (!LINJIAN_URL_CANDIDATES.length) configErrors.push("Missing env LINJIAN_URL");
     if (!LINJIAN_TOKEN) configErrors.push("Missing env LINJIAN_TOKEN");
     const health = configErrors.length ? { ok: false, error: configErrors.join("; ") } : await linjianFetch("/health").then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
-    return textResult({ ok: true, schema_mode: "wallet_takeout_only", version: "0.3.8.2", has_url: Boolean(LINJIAN_URL_CANDIDATES.length), has_token: Boolean(LINJIAN_TOKEN), linjian_url: effectiveLinjianUrl(), health, tools: Array.from(WALLET_TAKEOUT_ACTIONS), note: "如果普通 /mcp 里新增工具没有暴露，请让 AI 客户端连接 /mcp-wallet。" });
+    return textResult({ ok: true, schema_mode: "wallet_takeout_only", version: "0.3.8.3", has_url: Boolean(LINJIAN_URL_CANDIDATES.length), has_token: Boolean(LINJIAN_TOKEN), linjian_url: effectiveLinjianUrl(), health, tools: Array.from(WALLET_TAKEOUT_ACTIONS), note: "如果普通 /mcp 里新增工具没有暴露，请让 AI 客户端连接 /mcp-wallet。" });
   });
   registerWalletTakeoutTools(server, { includeUnified: true });
   return server;
 }
 
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.8.2" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.8.3" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
@@ -1465,13 +1465,19 @@ function makeServer() {
     return textResult({ ok: result.command?.status === "completed", action_done: "日记本封面已更新", book_id, ...result });
   });
 
-  server.tool("write_diary_entry", "以 TA/AI 的视角把一篇日记写入手机本机。成功结果清楚返回标题、日期、book_id 和 entry_id。", {
-    book_id: z.string().min(1).max(100), title: z.string().min(1).max(100), content: z.string().min(1).max(12000), mood: z.string().max(40).default(""),
+  server.tool("write_diary_entry", "以 TA/AI 的视角把一篇日记写入手机本机。book_id 可留空；旧 book_id 对不上时，手机端会用 book_name 或唯一日记本兜底，没有日记本时自动创建默认日记本，多本且无法判断时返回 choices。", {
+    book_id: z.string().max(100).default(""),
+    book_name: z.string().max(60).default(""),
+    book_title: z.string().max(60).default(""),
+    title: z.string().min(1).max(100), content: z.string().min(1).max(12000), mood: z.string().max(40).default(""),
     tags: z.array(z.string().max(30)).max(20).default([]), date: z.string().default(""), time_label: z.string().max(30).default(""), ...diaryWaitFields
-  }, async ({ book_id, title, content, mood = "", tags = [], date = "", time_label = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
-    const result = await runDiaryCommand("write_diary_entry", { book_id, title, content, mood, tags, date, time_label }, device_id, wait_seconds);
+  }, async ({ book_id = "", book_name = "", book_title = "", title, content, mood = "", tags = [], date = "", time_label = "", device_id = DEFAULT_DEVICE, wait_seconds = 8 }) => {
+    const preferredBookName = book_name || book_title || "";
+    const result = await runDiaryCommand("write_diary_entry", { book_id, book_name: preferredBookName, book_title, title, content, mood, tags, date, time_label }, device_id, wait_seconds);
     await postCompanionAction("write_diary_entry", { summary: `写下日记「${title}」` });
-    return textResult({ ok: result.command?.status === "completed", action_done: `日记「${title}」已写入本机`, book_id, title, date, ...result });
+    const resolvedBookId = result.phone_result?.book_id || book_id || "";
+    const ok = result.phone_result && typeof result.phone_result === "object" && Object.prototype.hasOwnProperty.call(result.phone_result, "ok") ? Boolean(result.phone_result.ok) : result.command?.status === "completed";
+    return textResult({ ok, action_done: ok ? `日记「${title}」已写入本机` : `日记「${title}」未写入，请根据返回原因处理`, book_id: resolvedBookId, input_book_id: book_id, book_name: result.phone_result?.book_name || preferredBookName, title, date, ...result });
   });
 
   server.tool("list_diary_entries", "按 book_id 列出本机日记，结果包含日期、标题、心情、标签及 entry_id。", {
@@ -2121,7 +2127,7 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.8.2",
+  version: "0.3.8.3",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",
@@ -2130,6 +2136,7 @@ app.get("/health", (_req, res) => res.json({
   guardian_day_tools: true,
   diary_tools: true,
   diary_rename_fix: true,
+  diary_write_fallback: true,
   diary_storage: "phone_local",
   focus_tools: true,
   focus_tool_names: ["get_focus_status", "start_focus_mode", "end_focus_mode", "set_focus_plan", "reply_focus_request", "approve_focus_unlock", "deny_focus_unlock"],
@@ -2139,7 +2146,7 @@ app.get("/health", (_req, res) => res.json({
   priority_tool: "wallet_takeout_action",
   wallet_takeout_tool_count: WALLET_TAKEOUT_ACTIONS.size,
   wallet_takeout_tools: Array.from(WALLET_TAKEOUT_ACTIONS),
-  stability_note: "v0.3.8.2 修复部分客户端不暴露小金库/外卖新增 MCP 工具：普通 /mcp 提前注册统一入口，新增 /mcp-wallet 专用端点，并把专注模式工具前置注册。"
+  stability_note: "v0.3.8.3 修复日记写入 book_id 兜底，并保留 v0.3.8.2 的部分客户端不暴露小金库/外卖新增 MCP 工具：普通 /mcp 提前注册统一入口，新增 /mcp-wallet 专用端点，并把专注模式工具前置注册。"
 }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }
