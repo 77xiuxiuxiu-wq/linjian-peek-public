@@ -1,14 +1,15 @@
 {
-  "latest_version_name": "0.3.8.1",
-  "latest_version_code": 30801,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.8.1/Zhangxinchuang-public-v0.3.8.1.apk",
+  "latest_version_name": "0.3.8.2",
+  "latest_version_code": 30802,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.8.2/Zhangxinchuang-public-v0.3.8.2.apk",
   "sha256": "",
   "required": false,
   "notes": [
+    "修复守护页未显示专注模式入口：安心规则中新增「专注模式」卡片，支持查看状态、5 分钟测试和默认规则。",
     "新增 Focus Mode 专注模式：AI 可通过 MCP 开启、结束和查询全机专注。",
     "专注锁定页支持“留言给他”和默认一次 1 分钟应急放行。",
     "MCP /health 明确暴露 focus_tools 和专注工具清单，降低新增工具不显示的问题。",
     "修复 rename_diary_book：缺少 book_id 时可用 old_name 或唯一日记本自动重命名。",
-    "版本号升级到 v0.3.8.1 / 30801，固定签名保持不变。"
+    "版本号升级到 v0.3.8.2 / 30802，固定签名保持不变。"
   ]
 }
