@@ -1,4 +1,4 @@
-# MCP 工具清单（v0.3.8.0-public）
+# MCP 工具清单（v0.3.8.1-public）
 
 掌心窗 MCP 服务把手机端能力暴露给支持 MCP 的客户端。所有工具都需要你自己的 `LINJIAN_TOKEN`，并且手机端需要保持服务启动。公开版工具只保留通用能力，不包含私人绑定接口、私人 Token、私人服务地址或固定私人关系。
 
@@ -167,7 +167,7 @@ Render 一键部署时，`LINJIAN_URL` 会由 Blueprint 自动引用 server 的�
 - `list_lockable_apps`、`add_locked_app`、`remove_locked_app`、`set_emergency_passphrase`：旧版命名兼容。
 
 
-## v0.3.8.0 小金库双向申请工具
+## v0.3.8.1 小金库双向申请工具
 
 - `submit_companion_wallet_request`：陪伴者提交申请，等待用户处理。
 - `list_companion_wallet_requests`：陪伴者读取自己提交的申请和用户处理结果。
@@ -176,7 +176,7 @@ Render 一键部署时，`LINJIAN_URL` 会由 Blueprint 自动引用 server 的�
 - `edit_wallet_record`：编辑已记入小金库的账单金额、分类、商家和备注。
 - `delete_wallet_record`：删除一条小金库账单。
 
-## v0.3.8.0 外卖助手工具
+## v0.3.8.1 外卖助手工具
 
 - `get_takeout_state`：读取外卖助手预算、口味偏好、常点外卖库和最近点单状态。
 - `set_takeout_budget`：设置单餐预算、今日外卖预算和口味偏好。
@@ -195,9 +195,9 @@ Render 一键部署时，`LINJIAN_URL` 会由 Blueprint 自动引用 server 的�
 - `cancel_takeout_checkout`：取消自动点单任务。
 
 
-## v0.3.8.0 新增工具暴露修复
+## v0.3.8.1 新增工具暴露修复
 
-如果 `/health` 已显示小金库双向申请和外卖助手工具，但 AI 客户端工具面板没有暴露出来，请优先检查 MCP 服务是否已经重新部署到 `0.3.8.0`。
+如果 `/health` 已显示小金库双向申请和外卖助手工具，但 AI 客户端工具面板没有暴露出来，请优先检查 MCP 服务是否已经重新部署到 `0.3.8.1`。
 
 本版提供两个兜底方案：
 
@@ -207,7 +207,7 @@ Render 一键部署时，`LINJIAN_URL` 会由 Blueprint 自动引用 server 的�
 常用 action 示例：`submit_companion_wallet_request`、`list_companion_wallet_requests`、`save_user_wallet_request_result`、`get_takeout_state`、`prepare_takeout_checkout`。
 
 
-## v0.3.8.0 专注模式工具与日记本重命名修复
+## v0.3.8.1 专注模式工具与日记本重命名修复
 
 专注模式必须在 MCP 工具列表中暴露：`get_focus_status`、`start_focus_mode`、`end_focus_mode`、`set_focus_plan`、`reply_focus_request`、`approve_focus_unlock`、`deny_focus_unlock`。用户说“帮我专注/锁手机/开专注模式/别让我玩手机”时优先调用 `start_focus_mode`；锁单个 App 才使用应用门禁。
 

@@ -135,7 +135,7 @@ public class MainActivity extends Activity {
         loadSettings();
         NowState.start(this);
 
-        DebugState.append(this, "掌心窗公开版 v0.3.8.0 已打开");
+        DebugState.append(this, "掌心窗公开版 v0.3.8.1 已打开");
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 13);
         serviceRunning = CompanionService.isRunning();
         updateUI();
@@ -950,7 +950,7 @@ public class MainActivity extends Activity {
         LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(dp(8), 0, dp(8), 0);
         EditText name = new EditText(this); name.setHint("日记本名字"); name.setText(book.optString("name", "")); box.addView(name);
         EditText subtitle = new EditText(this); subtitle.setHint("封面小字"); subtitle.setText(book.optString("subtitle", "")); box.addView(subtitle);
-        new AlertDialog.Builder(this).setTitle("重命名日记本").setView(box).setNegativeButton("取消", null).setPositiveButton("保存", (d, w) -> { DiaryState.renameBook(this, diaryBookId, name.getText().toString(), subtitle.getText().toString()); if (diaryContentOpen) replaceScrollContent(sectionSee, buildDiaryContentPage(null)); else showDiaryHomePage(); }).show();
+        new AlertDialog.Builder(this).setTitle("重命名日记本").setView(box).setNegativeButton("取消", null).setPositiveButton("保存", (d, w) -> { DiaryState.renameBook(this, diaryBookId, book.optString("name", ""), name.getText().toString(), subtitle.getText().toString()); if (diaryContentOpen) replaceScrollContent(sectionSee, buildDiaryContentPage(null)); else showDiaryHomePage(); }).show();
     }
 
     private void showDiaryCoverMenu() {
@@ -2244,7 +2244,7 @@ public class MainActivity extends Activity {
         getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", false).apply(); requestIgnoreBatteryOptimization();
         Intent intent = new Intent(this, CompanionService.class); intent.putExtra("server_url", url); intent.putExtra("token", token);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent); else startService(intent);
-        DebugState.append(this, "已请求启动前台服务：公开版 v0.3.8.0 右侧 love 线稿花枝已启用"); serviceRunning = true; updateUI();
+        DebugState.append(this, "已请求启动前台服务：公开版 v0.3.8.1 右侧 love 线稿花枝已启用"); serviceRunning = true; updateUI();
     }
 
     private void stopCompanionService() { getSharedPreferences(AppPrefs.PREFS, MODE_PRIVATE).edit().putBoolean("user_stopped", true).apply(); stopService(new Intent(this, CompanionService.class)); DebugState.append(this, "已停止服务"); serviceRunning = false; updateUI(); }

@@ -875,7 +875,7 @@ function walletApprovalSummary(records = []) {
 
 
 
-// v0.3.8.0：部分 MCP 客户端会缓存或截断工具 schema，导致后加的小金库/外卖工具在 /health 里存在，
+// v0.3.8.1：部分 MCP 客户端会缓存或截断工具 schema，导致后加的小金库/外卖工具在 /health 里存在，
 // 但在 ChatGPT 工具面板里没有完全暴露。这里提供两层修复：
 // 1）在普通 /mcp 里靠前暴露一个统一入口 wallet_takeout_action，单独工具没刷出来时也能调用。
 // 2）新增 /mcp-wallet 专用端点，只暴露小金库 + 外卖助手相关工具，避免工具过多时被客户端截断。
@@ -990,20 +990,20 @@ function registerWalletTakeoutTools(server, { includeUnified = false } = {}) {
 }
 
 function makeWalletTakeoutServer() {
-  const server = new McpServer({ name: "掌心窗小金库外卖", version: "0.3.8.0" });
+  const server = new McpServer({ name: "掌心窗小金库外卖", version: "0.3.8.1" });
   server.tool("linjian_status", "检查掌心窗后端、MCP 配置，以及当前是否使用小金库/外卖专用 schema。", {}, async () => {
     const configErrors = [];
     if (!LINJIAN_URL_CANDIDATES.length) configErrors.push("Missing env LINJIAN_URL");
     if (!LINJIAN_TOKEN) configErrors.push("Missing env LINJIAN_TOKEN");
     const health = configErrors.length ? { ok: false, error: configErrors.join("; ") } : await linjianFetch("/health").then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
-    return textResult({ ok: true, schema_mode: "wallet_takeout_only", version: "0.3.8.0", has_url: Boolean(LINJIAN_URL_CANDIDATES.length), has_token: Boolean(LINJIAN_TOKEN), linjian_url: effectiveLinjianUrl(), health, tools: Array.from(WALLET_TAKEOUT_ACTIONS), note: "如果普通 /mcp 里新增工具没有暴露，请让 AI 客户端连接 /mcp-wallet。" });
+    return textResult({ ok: true, schema_mode: "wallet_takeout_only", version: "0.3.8.1", has_url: Boolean(LINJIAN_URL_CANDIDATES.length), has_token: Boolean(LINJIAN_TOKEN), linjian_url: effectiveLinjianUrl(), health, tools: Array.from(WALLET_TAKEOUT_ACTIONS), note: "如果普通 /mcp 里新增工具没有暴露，请让 AI 客户端连接 /mcp-wallet。" });
   });
   registerWalletTakeoutTools(server, { includeUnified: true });
   return server;
 }
 
 function makeServer() {
-  const server = new McpServer({ name: "掌心窗", version: "0.3.8.0" });
+  const server = new McpServer({ name: "掌心窗", version: "0.3.8.1" });
   const commandBackedTools = new Set([
     "peek_screen", "get_screen_nodes", "tap_text", "input_text", "draft_xhs_comment", "xhs_comment", "send_visible_comment_after_confirmation",
     "add_guardian_calendar_event", "care_action", "trigger_guidian", "mark_guidian_returned",
@@ -1038,7 +1038,7 @@ function makeServer() {
   };
 
 
-  // v0.3.8.0：专注模式工具靠前注册，避免部分客户端只读取前若干个 schema 时漏掉接口。
+  // v0.3.8.1：专注模式工具靠前注册，避免部分客户端只读取前若干个 schema 时漏掉接口。
   server.tool("get_focus_status", "读取手机端专注模式 Focus Mode 状态：是否开启、目标、剩余时间、留言、应急次数。用户问专注模式、锁手机、全机专注、留言给他时优先调用。", {
     device_id: z.string().default(DEFAULT_DEVICE)
   }, async ({ device_id = DEFAULT_DEVICE }) => {
@@ -1323,7 +1323,7 @@ function makeServer() {
 
 
 
-  // v0.3.8.0：小金库/外卖工具已由 registerWalletTakeoutTools 提前注册，避免 schema 被客户端截断。
+  // v0.3.8.1：小金库/外卖工具已由 registerWalletTakeoutTools 提前注册，避免 schema 被客户端截断。
 
   server.tool("get_guardian_calendar", "读取掌心窗『守护日历』：最近纪念日/节日/倒数日、提前三天横幅提醒、分组与生活状态层 calendar_state。当用户提到七夕、生日、绑定日、纪念日、日历、倒数日或重要日期时可调用。", { device_id: z.string().default(DEFAULT_DEVICE) }, async ({ device_id = DEFAULT_DEVICE }) => {
     const res = await linjianFetch(`/api/life_state?device_id=${encodeURIComponent(device_id)}`);
@@ -2121,7 +2121,7 @@ app.get("/", (_req, res) => res.type("text/plain").send("掌心窗 unified MCP i
 app.get("/health", (_req, res) => res.json({
   ok: true,
   service: "linjian-public-mcp",
-  version: "0.3.8.0",
+  version: "0.3.8.1",
   has_url: Boolean(LINJIAN_URL_CANDIDATES.length),
   has_token: Boolean(LINJIAN_TOKEN),
   configured_linjian_url: RAW_LINJIAN_URL || "",
@@ -2139,7 +2139,7 @@ app.get("/health", (_req, res) => res.json({
   priority_tool: "wallet_takeout_action",
   wallet_takeout_tool_count: WALLET_TAKEOUT_ACTIONS.size,
   wallet_takeout_tools: Array.from(WALLET_TAKEOUT_ACTIONS),
-  stability_note: "v0.3.8.0 修复部分客户端不暴露小金库/外卖新增 MCP 工具：普通 /mcp 提前注册统一入口，新增 /mcp-wallet 专用端点，并把专注模式工具前置注册。"
+  stability_note: "v0.3.8.1 修复部分客户端不暴露小金库/外卖新增 MCP 工具：普通 /mcp 提前注册统一入口，新增 /mcp-wallet 专用端点，并把专注模式工具前置注册。"
 }));
 app.post("/mcp", async (req, res) => {
   try { const server = makeServer(); const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined }); res.on("close", () => transport.close()); await server.connect(transport); await transport.handleRequest(req, res, req.body); }
