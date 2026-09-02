@@ -63,7 +63,7 @@ public class CompanionService extends Service {
             DebugState.append(this, "服务启动失败：服务器地址或 Token 为空");
             stopSelf(); return START_NOT_STICKY;
         }
-        DebugState.append(this, "掌心窗公开版 v0.3.7.9 服务已启动，目标：" + serverUrl);
+        DebugState.append(this, "掌心窗公开版 v0.3.8.0 服务已启动，目标：" + serverUrl);
         if (!running) { running = true; startPolling(); } else DebugState.append(this, "服务已在运行，继续轮询");
         return START_STICKY;
     }
@@ -197,6 +197,14 @@ public class CompanionService extends Service {
                 try { reportCommand(ctx, serverUrl, token, id, true, result); uploadStateThrottled(serverUrl, token, ctx, false); } catch (Exception ignored) { }
                 return;
             }
+            if (FocusMode.isFocusAction(action)) {
+                JSONObject rr = FocusMode.handleCommand(ctx, cmd);
+                boolean ok = rr.optBoolean("ok", false);
+                String result = rr.optString("result", rr.toString());
+                DebugState.append(ctx, "执行专注模式命令 " + action + "：" + result);
+                try { reportCommand(ctx, serverUrl, token, id, ok, result); uploadStateThrottled(serverUrl, token, ctx, true); } catch (Exception ignored) { }
+                return;
+            }
             if (isAppGateAction(action)) {
                 JSONObject rr = AppGate.handleCommand(ctx, normalizedGateCommand(cmd));
                 boolean ok = rr.optBoolean("ok", false);
@@ -290,6 +298,7 @@ public class CompanionService extends Service {
             } else if (isWalletAction(action)) { JSONObject rr = WalletState.handleCommand(ctx, new JSONObject().put("action", action).put("amount", 0)); ok = rr.optBoolean("ok", false); result = rr.toString();
             } else if (isTakeoutAction(action)) { JSONObject rr = TakeoutState.handleCommand(ctx, new JSONObject().put("action", action)); ok = rr.optBoolean("ok", false); result = rr.toString();
             } else if ("get_calendar_state".equals(action) || "upsert_calendar_event".equals(action) || "add_calendar_event".equals(action) || "delete_calendar_event".equals(action)) { JSONObject rr = CalendarState.handleCommand(ctx, new JSONObject().put("action", action).put("title", title).put("date", message)); ok = rr.optBoolean("ok", false); result = rr.optString("result", rr.toString());
+            } else if (FocusMode.isFocusAction(action)) { JSONObject rr = FocusMode.handleCommand(ctx, new JSONObject().put("action", action).put("app", app).put("package", pkg)); ok = rr.optBoolean("ok", false); result = rr.optString("result", rr.toString());
             } else if (isAppGateAction(action)) { JSONObject rr = AppGate.handleCommand(ctx, new JSONObject().put("action", normalizeGateAction(action)).put("app", app).put("package", pkg)); ok = rr.optBoolean("ok", false); result = rr.optString("result", rr.toString());
             } else if ("get_screen_nodes".equals(action)) {
                 if (svc != null) { svc.refreshScreenModel(); ok = true; result = svc.getScreenNodesJsonNow(); }

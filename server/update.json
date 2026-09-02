@@ -1,13 +1,14 @@
 {
-  "latest_version_name": "0.3.7.9",
-  "latest_version_code": 30709,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.7.9/Zhangxinchuang-public-v0.3.7.9.apk",
+  "latest_version_name": "0.3.8.0",
+  "latest_version_code": 30800,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.8.0/Zhangxinchuang-public-v0.3.8.0.apk",
+  "sha256": "",
+  "required": false,
   "notes": [
-    "新增公开版「今天吃什么」外卖助手，入口在守护功能页。",
-    "整合私人版外卖助手：常点外卖库、单餐/今日预算、帮我挑、打开链接、复制备注和点到付款页。",
-    "外卖计划支持提交到小金库审批，付款仍由用户本人确认。",
-    "小金库审批通过后自动生成支出记录，并通过 approval_id/source_key 避免重复入账。",
-    "继续保留双向审批、审批理由、账单左滑编辑/删除等 v0.3.7.7 功能。",
-    "版本号升级到 v0.3.7.9。"
+    "新增 Focus Mode 专注模式：AI 可通过 MCP 开启、结束和查询全机专注。",
+    "专注锁定页支持“留言给他”和默认一次 1 分钟应急放行。",
+    "MCP /health 明确暴露 focus_tools 和专注工具清单，降低新增工具不显示的问题。",
+    "修复 rename_diary_book：缺少 book_id 时可用 old_name 或唯一日记本自动重命名。",
+    "版本号升级到 v0.3.8.0 / 30800，固定签名保持不变。"
   ]
 }
