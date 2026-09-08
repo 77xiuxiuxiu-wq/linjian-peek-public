@@ -1,19 +1,25 @@
 {
-  "latest_version_name": "0.3.8.4",
-  "latest_version_code": 30804,
-  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.8.4/Zhangxinchuang-public-v0.3.8.4.apk",
+  "latest_version_name": "0.3.8.5",
+  "latest_version_code": 30805,
+  "apk_url": "https://github.com/linzhi-524/linjian-peek-public/releases/download/v0.3.8.5/Zhangxinchuang-public-v0.3.8.5.apk",
   "sha256": "",
   "required": false,
   "notes": [
-    "修复守护页未显示专注模式入口：安心规则中新增「专注模式」卡片，支持查看状态、5 分钟测试和默认规则。",
-    "新增 Focus Mode 专注模式：AI 可通过 MCP 开启、结束和查询全机专注。",
-    "专注锁定页支持“留言给他”和默认一次 1 分钟应急放行。",
-    "MCP /health 明确暴露 focus_tools 和专注工具清单，降低新增工具不显示的问题。",
-    "修复 rename_diary_book：缺少 book_id 时可用 old_name 或唯一日记本自动重命名。",
-    "版本号升级到 v0.3.8.4 / 30804，固定签名保持不变。"
+    "新增 TA 的日记「页边纸条」批注：展开日记后长按段落即可给这段文字留下批注。",
+    "批注不会变成评论区，也不会在每段强行显示按钮；只有被批注过的段落会出现柔和高亮和纸条标记。",
+    "批注弹窗支持引用原段落、心情标签（喜欢这里/抱抱/记住了/想回应）、200 字以内纸条内容。",
+    "日记页会以浅粉高亮、细竖线和纸质便签卡展示批注，保持公开版柔和纸页风格。",
+    "新增本机批注数据层：批注随日记备份导入导出；删除日记或日记本时同步清理相关批注。",
+    "MCP 新增页边纸条工具：add/list/read-with-annotations/mark-seen/delete，机可以读取用户留下的批注内容并回应。",
+    "版本号升级到 v0.3.8.5 / 30805，固定签名保持不变。"
   ],
   "changelog": [
-    "修复日记写入 book_id 兜底：旧窗口或计划任务带旧 ID 时，单本日记会自动写入当前日记本。",
-    "write_diary_entry 支持 book_id 留空、book_name 兜底；无日记本时自动创建默认日记本，多本无法判断时返回候选项。"
+    "新增 TA 的日记「页边纸条」批注：展开日记后长按段落即可给这段文字留下批注。",
+    "批注不会变成评论区，也不会在每段强行显示按钮；只有被批注过的段落会出现柔和高亮和纸条标记。",
+    "批注弹窗支持引用原段落、心情标签（喜欢这里/抱抱/记住了/想回应）、200 字以内纸条内容。",
+    "日记页会以浅粉高亮、细竖线和纸质便签卡展示批注，保持公开版柔和纸页风格。",
+    "新增本机批注数据层：批注随日记备份导入导出；删除日记或日记本时同步清理相关批注。",
+    "MCP 新增页边纸条工具：add/list/read-with-annotations/mark-seen/delete，机可以读取用户留下的批注内容并回应。",
+    "版本号升级到 v0.3.8.5 / 30805，固定签名保持不变。"
   ]
 }
